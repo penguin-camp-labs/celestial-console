@@ -79,16 +79,16 @@ export default function Sky(props:Props){
   // A cheap sky dome: no textures, weather requests, ray marching or extra render pass.
   const skyGeometry=new THREE.SphereGeometry(1800,24,16);
   const skyMaterial=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,depthTest:false,toneMapped:false,
-   uniforms:{zenith:{value:new THREE.Color()},horizon:{value:new THREE.Color()},ground:{value:new THREE.Color()},sunDirection:{value:new THREE.Vector3()},glow:{value:0}},
+   uniforms:{zenith:{value:new THREE.Color()},horizon:{value:new THREE.Color()},ground:{value:new THREE.Color()},sunDirection:{value:new THREE.Vector3()},glow:{value:0},groundView:{value:0}},
    vertexShader:'varying vec3 worldPosition; void main(){vec4 w=modelMatrix*vec4(position,1.0);worldPosition=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}',
-   fragmentShader:`uniform vec3 zenith,horizon,ground,sunDirection;uniform float glow;varying vec3 worldPosition;
-    void main(){vec3 direction=normalize(worldPosition-cameraPosition);float height=direction.y;
+   fragmentShader:`uniform vec3 zenith,horizon,ground,sunDirection;uniform float glow,groundView;varying vec3 worldPosition;
+    void main(){vec3 direction=normalize(worldPosition-cameraPosition);float height=groundView>0.5?direction.y:abs(direction.y);
      vec3 bearing=normalize(vec3(direction.x,0.0,direction.z)+vec3(0.00001,0.0,0.0));
      vec3 sunBearing=normalize(vec3(sunDirection.x,0.0,sunDirection.z)+vec3(0.00001,0.0,0.0));
      float towards=pow(max(0.0,dot(bearing,sunBearing)),4.0);
      float haze=pow(1.0-clamp(height,0.0,1.0),3.0);
      vec3 colour=mix(zenith,horizon,haze*mix(1.0,0.25+0.75*towards,glow));
-     colour=mix(colour,ground,smoothstep(0.0,0.16,-height));gl_FragColor=vec4(colour,1.0);
+     colour=mix(colour,ground,groundView*smoothstep(0.0,0.16,-height));gl_FragColor=vec4(colour,1.0);
      #include <colorspace_fragment>
     }`});
   const skyDome=new THREE.Mesh(skyGeometry,skyMaterial);skyDome.userData.skyDome=true;skyDome.renderOrder=-1000;skyDome.frustumCulled=false;scene.add(skyDome);disposable.push(skyGeometry,skyMaterial);
@@ -136,15 +136,15 @@ export default function Sky(props:Props){
    const target=p.flat?1:0;morph=p.reduced||ground?target:THREE.MathUtils.damp(morph,target,6,dt);if(Math.abs(morph-target)<.001)morph=target;
    const rotation=(180-c.asc)*DEG,m=observerMatrix(c),matrix=new THREE.Matrix4().set(m[0],m[1],m[2],0,m[3],m[4],m[5],0,m[6],m[7],m[8],0,0,0,0,1);
    const q3=new THREE.Quaternion().setFromRotationMatrix(matrix),q2=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rotation);world.quaternion.copy(q3).slerp(q2,morph);
-   sphere.visible=p.grid&&morph<.995;sphere.traverse(o=>{if(o instanceof THREE.Line)(o.material as THREE.LineBasicMaterial).opacity=.23*(1-morph);});
+   sphere.visible=p.grid&&morph<.995;sphere.traverse(o=>{if(o instanceof THREE.Line)(o.material as THREE.LineBasicMaterial).opacity=(bright?.45:.23)*(1-morph);});
    earth.visible=!ground&&morph<.99;earthLabel.visible=!ground&&morph<.5;earth.rotation.y+=dt*.08;
    const k=p.reduced?1:1-Math.exp(-dt*18);
    nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=p.playing||stopped||b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(hideBelow&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
    const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
    edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(p.focus?(bright?.42:.26):(chosen?(bright?.92:.65):(bright?.10:.065))):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a){e.mat.color.set(a.color);e.mat.userData.themeColor=a.color;}e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
-   updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=.5*(1-morph);
-   updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=.3*(1-morph);
+   updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=(bright?.85:.5)*(1-morph);
+   updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=(bright?.65:.3)*(1-morph);
 
    const planeVector=(a:number[],r=218)=>new THREE.Vector3(a[0]*r,a[2]*r,-a[1]*r);
    const pathVector=(a:number[],r=225)=>{const lon=wrap(Math.atan2(a[1],a[0])/DEG),lat=Math.atan2(a[2],Math.hypot(a[0],a[1]))/DEG;return v(lon,lat*(1-morph),r-27*morph);};
@@ -156,7 +156,7 @@ export default function Sky(props:Props){
 
    const showHouses=p.flat?(p.houses2d??true):p.houses;
    if(showHouses&&(c!==houseFrame||p.houseSystem!==houseMode)){houseFrame=c;houseMode=p.houseSystem;houseResult=houseCusps(c,p.houseSystem);}
-   houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
+   houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=bright?.65+.2*morph:.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses;mcL.visible=p.horizon||showHouses;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
@@ -166,9 +166,9 @@ export default function Sky(props:Props){
    const themeKey=theme+':'+bright;
    if(lastTheme!==themeKey){lastTheme=themeKey;if(host?.parentElement)host.parentElement.dataset.skyScheme=bright?'light':'dark';}
    skyDome.visible=theme==='sky'&&morph<.995;skyDome.position.copy(activeCamera.position);
-   skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;
+   skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;skyMaterial.uniforms.groundView.value=ground?1:0;
    // Update colour, never recreate geometry/camera when switching themes.
-   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){const belowDarkSky=theme==='sky'&&!p.flat&&o.position.clone().applyQuaternion(world.quaternion).y < -35;mat.color.set(o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright&&!belowDarkSky):inkColor(mat.userData.themeColor,bright&&!belowDarkSky));}});
+   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){mat.color.set(o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright):inkColor(mat.userData.themeColor,bright));}});
    starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
   renderer.setAnimationLoop(animate);
