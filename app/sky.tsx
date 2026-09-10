@@ -67,11 +67,11 @@ export default function Sky(props:Props){
   const selectionGeo=new THREE.RingGeometry(8,9,32),selectionMat=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false});
   const selection=new THREE.Mesh(selectionGeo,selectionMat);world.add(selection);disposable.push(selectionGeo,selectionMat);
   const starField=new THREE.Group();starField.userData.starField=true;world.add(starField);
-  const starLayers=[{min:-10,max:.3,size:3.4,opacity:.95},{min:.3,max:1,size:2.6,opacity:.8},{min:1,max:2,size:2,opacity:.65}].map(layer=>{
+  const starLayers=[{min:-10,max:.3,size:2.2,opacity:.44},{min:.3,max:1,size:1.7,opacity:.34},{min:1,max:2,size:1.3,opacity:.25}].map(layer=>{
    const entries=BRIGHT_STARS.map((s,i)=>({...s,index:i})).filter(s=>s.mag>=layer.min&&s.mag<layer.max);
    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(entries.length*3),3));
-   const mat=new THREE.PointsMaterial({color:'#d5e6f2',size:layer.size,transparent:true,opacity:layer.opacity,sizeAttenuation:false,depthWrite:false});
-   const points=new THREE.Points(geo,mat);points.userData.starIds=entries.map(s=>s.hip);starField.add(points);disposable.push(geo,mat);return {points,entries};
+   const mat=new THREE.PointsMaterial({color:'#a0b5c2',size:layer.size,transparent:true,opacity:layer.opacity,sizeAttenuation:false,depthWrite:false});
+   const points=new THREE.Points(geo,mat);points.userData.starIds=entries.map(s=>s.hip);starField.add(points);disposable.push(geo,mat);return {points,entries,opacity:layer.opacity};
   });
   let starMinute=NaN;
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downX=0,downY=0;const pointers=new Map<number,{x:number;y:number}>();let pinch=0;
@@ -139,7 +139,7 @@ export default function Sky(props:Props){
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
    if(minute!==starMinute){starMinute=minute;const positions=starPositions(minute*60000);starLayers.forEach(({points,entries})=>{const attr=points.geometry.getAttribute('position') as THREE.BufferAttribute;entries.forEach((s,i)=>{const v=positions[s.index];attr.setXYZ(i,v[0]*325,v[1]*325,v[2]*325);});attr.needsUpdate=true;points.geometry.computeBoundingSphere();});}
    if(p.focus)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible){o.visible=false;o.userData.hiddenByGround=true;}});
-   activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));if(hideBelow)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=morph<.995;starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=(p.focus?1:.85)*(1-morph);});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
+   activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));if(hideBelow)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=morph<.995;starLayers.forEach(({points,opacity})=>{(points.material as THREE.PointsMaterial).opacity=opacity*(1-morph);});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
   renderer.setAnimationLoop(animate);
   const lost=(e:Event)=>{e.preventDefault();renderer.setAnimationLoop(null);setFailure('描画への接続が失われました。ページを再読み込みしてください。');};renderer.domElement.addEventListener('webglcontextlost',lost);
