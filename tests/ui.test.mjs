@@ -99,6 +99,9 @@ await test('ground controls, point visibility and opt-in GPS keep location priva
  localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
  assert.equal(gpsCalls,0,'GPS never starts on page load');assert.ok(!document.body.textContent.includes('空を、立体で読み解く。'));
  await click(button('地上視点'));assert.equal(globalThis.__skyProps.observer,true);assert.equal(globalThis.__skyProps.flat,false);
+ assert.equal(globalThis.__skyProps.showBelowHorizon,true);assert.equal(byLabel('地平線下も表示').getAttribute('aria-checked'),'true');
+ await click(byLabel('地平線下も表示'));assert.equal(globalThis.__skyProps.showBelowHorizon,false);
+ await click(byLabel('地平線下も表示'));assert.equal(globalThis.__skyProps.showBelowHorizon,true);
  await click(byLabel('西を向く'));assert.equal(globalThis.__skyProps.heading,270);
  const oldLevel=globalThis.__skyProps.level;await click(button('地平線を水平に'));assert.equal(globalThis.__skyProps.level,oldLevel+1);
  await click(document.querySelector('.network-button'));

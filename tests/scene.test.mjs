@@ -96,8 +96,16 @@ await test('observer frame projects the horizon horizontally and supports an act
  checkHorizon();assert.ok(orbit.visible&&prime.visible);assert.ok(trails.every(t=>t.visible));
  props={...props,observer:true,headings:1,heading:90};await render();await advance();
  assert.ok(globalThis.__camera.isPerspectiveCamera);assert.equal(globalThis.__camera.position.length(),0);
- const forward=new Vector3();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.distanceTo(new Vector3(1,0,0))<1e-8,'east is the requested direction');assert.equal(globalThis.__renderer.clippingPlanes.length,1);
+ const forward=new Vector3();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.distanceTo(new Vector3(1,0,0))<1e-8,'east is the requested direction');assert.equal(globalThis.__renderer.clippingPlanes.length,0,'ground view shows below the horizon by default');
+ const allBodies=[],lowerLabels=[];globalThis.__scene.traverse(o=>{if(o.userData.id)allBodies.push(o);if(o.isSprite&&o.visible&&o.getWorldPosition(new Vector3()).y<-.1)lowerLabels.push(o);});
+ assert.equal(allBodies.filter(b=>b.visible).length,chart.bodies.length);assert.ok(allBodies.some(b=>b.getWorldPosition(new Vector3()).y<-.1));assert.ok(lowerLabels.length>0);
+ const groundCamera=globalThis.__camera;
+ props={...props,showBelowHorizon:false};await render();await advance();assert.equal(globalThis.__renderer.clippingPlanes.length,1);assert.ok(lowerLabels.every(o=>!o.visible));
  const visibleBodies=[];globalThis.__scene.traverse(o=>{if(o.userData.id&&o.visible)visibleBodies.push(o);});assert.ok(visibleBodies.length>0);for(const b of visibleBodies)assert.ok(b.getWorldPosition(new Vector3()).y>=-.01);
+ props={...props,showBelowHorizon:true};await render();for(let i=0;i<60;i++)await advance();
+ assert.equal(globalThis.__camera,groundCamera,'toggle preserves the camera');assert.equal(globalThis.__renderer.clippingPlanes.length,0);assert.ok(allBodies.every(b=>b.visible));assert.ok(lowerLabels.every(o=>o.visible),'labels return after unclipping');
+ const aspectLines=[];globalThis.__scene.traverse(o=>{if(o.userData.aspect&&o.visible)aspectLines.push(o);});assert.equal(aspectLines.length,chart.aspects.length,'all aspect lines return');
+ globalThis.__renderer.domElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));await advance();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.y<0,'can look beneath the horizon');
  props={...props,headings:2,heading:270};await render();await advance();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.distanceTo(new Vector3(-1,0,0))<1e-8,'west orientation');
  props={...props,observer:false,level:1,nodeOrbit:false,primeVertical:false,trails:false};await render();await advance();
  assert.ok(globalThis.__camera.isOrthographicCamera);checkHorizon();assert.equal(globalThis.__renderer.clippingPlanes.length,0);assert.ok(!orbit.visible&&!prime.visible&&trails.every(t=>!t.visible));
