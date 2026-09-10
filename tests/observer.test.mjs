@@ -39,11 +39,11 @@ test('ground display includes lunar parallax and matches Astronomy Engine topoce
  const actual=topocentricDirection(moon,c.observerVector),eq=A.Equator('Moon',new Date(time),new A.Observer(latitude,longitude,0),false,true),expected=A.Ecliptic(eq.vec);
  assert.ok(Math.abs(delta(actual.lon,expected.elon))<1e-7);assert.ok(Math.abs(actual.lat-expected.elat)<1e-7);
  assert.ok(Math.abs(delta(actual.lon,moon.lon))+Math.abs(actual.lat-moon.lat)>.1);
- const points=sensitivePoints(time,latitude,longitude);for(const p of points.points)assert.deepEqual(topocentricDirection(p,c.observerVector),{lon:p.lon,lat:0});
+ const points=sensitivePoints(time,latitude,longitude);for(const p of points.points)assert.deepEqual(topocentricDirection(p,c.observerVector),{lon:p.lon,lat:p.lat});
 });
 test('sensitive-point trails stay finite across wraparound and supported date boundaries',()=>{
  for(const time of [Date.UTC(1800,0,1),Date.UTC(2026,8,10),Date.UTC(2201,0,1)-1]){
- const p=sensitivePoints(time,35.68,139.7);assert.equal(p.points.length,3);assert.ok(p.points.every(p=>Number.isFinite(p.speed)&&p.distance===null));
+ const p=sensitivePoints(time,35.68,139.7);assert.equal(p.points.length,4);assert.ok(p.points.every(p=>Number.isFinite(p.speed)&&p.distance===null));
  const trails=pointTrails(time,35.68,139.7);assert.equal(trails.length,3);assert.equal(trails[0].positions.length,73);assert.equal(trails[2].positions.length,97);
  for(const t of trails)for(const point of t.positions)if(point)assert.ok(point.every(Number.isFinite));
  }

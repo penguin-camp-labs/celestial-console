@@ -77,9 +77,9 @@ await test('extended controls update aspects, individual asteroids and a private
  await click(document.querySelector('.network-button'));
  await input(byLabel('セミセクスタイルのオーブ'),'1.5');
  await click(byLabel('セレス / 1'));await flush(80);
- assert.equal(globalThis.__skyProps.chart.bodies.length,14);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
- await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,15);
- await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,14);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ assert.equal(globalThis.__skyProps.chart.bodies.length,15);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,16);
+ await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,15);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
  await click(byLabel('複合アスペクト'));await click(byLabel('ヨッド'));assert.equal(byLabel('ヨッド').getAttribute('aria-checked'),'false');
  await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
  await click(document.querySelector('.birth-trigger'));await flush(50);
@@ -87,7 +87,7 @@ await test('extended controls update aspects, individual asteroids and a private
  await input(byLabel('出生都市を検索'),'東京');await click(document.querySelector('.city-results button'));
  await act(async()=>document.querySelector('.birth-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush(150);
  assert.equal(displayed(),Date.parse('2000-02-29T03:30:00Z'));
- assert.equal(globalThis.__skyProps.chart.bodies.length,14);
+ assert.equal(globalThis.__skyProps.chart.bodies.length,15);
  assert.equal(localStorage.length,0,'birth data is not saved by default');
  assert.deepEqual(calls.map(c=>c.url),['/ephemeris/asteroids.bin','/data/cities.json'],'only fixed same-site assets are requested, without birth parameters');
  await act(async()=>root.unmount());
@@ -105,10 +105,13 @@ await test('ground controls, point visibility and opt-in GPS keep location priva
  await click(byLabel('西を向く'));assert.equal(globalThis.__skyProps.heading,270);
  const oldLevel=globalThis.__skyProps.level;await click(button('地平線を水平に'));assert.equal(globalThis.__skyProps.level,oldLevel+1);
  await click(document.querySelector('.network-button'));
- for(const id of ['NorthNode','SouthNode','Vertex'])assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id===id));
+ for(const id of ['NorthNode','SouthNode','Vertex','TrueLilith'])assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id===id));
  await click(byLabel('ドラゴンヘッド'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'));
  await click(byLabel('ドラゴンテイル'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='SouthNode'));
  await click(byLabel('バーテックス'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Vertex'));
+ const lilith=globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith');assert.ok(lilith&&Math.abs(lilith.lat)>0);assert.equal(lilith.kind,'point');
+ await click(byLabel('リリス（True Lilith）'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>e.a!=='TrueLilith'&&e.b!=='TrueLilith'));
+ await click(byLabel('リリス（True Lilith）'));assert.deepEqual(globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith'),lilith);
  await click(byLabel('月の軌道面'));assert.equal(globalThis.__skyProps.nodeOrbit,false);
  await click(byLabel('卯酉線（バーテックスの基準）'));assert.equal(globalThis.__skyProps.primeVertical,false);
  await click(byLabel('感受点の移動軌跡'));assert.equal(globalThis.__skyProps.trails,true);assert.equal(globalThis.__skyProps.chart.pointTrails.length,3);
@@ -130,7 +133,7 @@ await test('point aspect toggle preserves visible points and filters ordinary an
  const original=globalThis.__skyProps.chart;
  const pointIds=new Set(original.bodies.filter(b=>b.kind==='point').map(b=>b.id));
  const involvesPoint=e=>pointIds.has(e.a)||pointIds.has(e.b);
- assert.equal(pointIds.size,3);assert.ok(original.aspects.some(involvesPoint));assert.ok(original.patternEdges.some(involvesPoint));
+ assert.equal(pointIds.size,4);assert.ok(original.aspects.some(involvesPoint));assert.ok(original.patternEdges.some(involvesPoint));
  assert.ok(!original.aspects.some(e=>[e.a,e.b].includes('NorthNode')&&[e.a,e.b].includes('SouthNode')));
  await click(byLabel('感受点をアスペクトに含める'));
  assert.equal(byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),'false');
