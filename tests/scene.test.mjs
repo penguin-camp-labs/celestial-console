@@ -9,8 +9,9 @@ import {calculate} from '../lib/engine.mjs';
 const dom=new JSDOM('<div id="root"></div>',{url:'https://celestial.test/',pretendToBeVisual:true});
 for(const k of ['window','document','HTMLElement','HTMLCanvasElement','Element','Node','Event','MouseEvent','KeyboardEvent'])globalThis[k]=dom.window[k];
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
-Object.defineProperty(HTMLElement.prototype,'clientWidth',{get:()=>1000});
-Object.defineProperty(HTMLElement.prototype,'clientHeight',{get:()=>660});
+let viewportWidth=1000,viewportHeight=660;
+Object.defineProperty(HTMLElement.prototype,'clientWidth',{get:()=>viewportWidth});
+Object.defineProperty(HTMLElement.prototype,'clientHeight',{get:()=>viewportHeight});
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 globalThis.ResizeObserver=class{constructor(cb){this.cb=cb;} observe(){this.cb();} disconnect(){}};
 HTMLCanvasElement.prototype.getContext=function(type){if(type==='2d')return {clearRect(){},fillText(){},measureText(){return {width:20}}};return null;};
@@ -45,4 +46,26 @@ await test('actual Three scene updates planets, aspects and continuous 2D/3D tra
  for(const b of bodies)assert.ok(Number.isFinite(b.position.x+b.position.y+b.position.z));
  await act(async()=>root.unmount());assert.equal(globalThis.__animate,null);assert.equal(globalThis.__disposed,true);
 });
+
+await test('reduced-motion 2D switch reaches the overhead camera and returns to 3D',async()=>{
+ const root=createRoot(document.getElementById('root'));let props={chart:calculate(Date.UTC(2026,8,10)),flat:false,aspects:true,grid:true,horizon:true,houses:false,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ await act(async()=>root.render(createElement(Sky,props)));
+ await act(async()=>globalThis.__animate(1000));
+ const before=globalThis.__camera.position.clone();props={...props,flat:true};await act(async()=>root.render(createElement(Sky,props)));
+ await act(async()=>globalThis.__animate(1020));
+ assert.ok(Math.hypot(globalThis.__camera.position.x,globalThis.__camera.position.z)<.01,'2D camera must be overhead even without a tween');
+ props={...props,flat:false};await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(1040));
+ assert.ok(globalThis.__camera.position.distanceTo(before)<.01,'3D camera is restored');
+ await act(async()=>root.unmount());
+});
+await test('initial 2D view and narrow-screen projection keep the chart in frame',async()=>{
+ viewportWidth=320;viewportHeight=500;
+ const root=createRoot(document.getElementById('root'));
+ await act(async()=>root.render(createElement(Sky,{chart:calculate(Date.UTC(2026,8,10)),flat:true,aspects:true,grid:true,horizon:true,houses:true,houseSystem:'equal',selected:'Sun',onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}})));
+ await act(async()=>globalThis.__animate(1000));
+ assert.ok(Math.hypot(globalThis.__camera.position.x,globalThis.__camera.position.z)<.01);
+ assert.ok(Math.min(globalThis.__camera.right,globalThis.__camera.top)>=310,'chart labels must fit the narrower viewport dimension');
+ await act(async()=>root.unmount());viewportWidth=1000;viewportHeight=660;
+});
+
 dom.window.close();

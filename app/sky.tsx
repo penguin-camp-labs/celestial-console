@@ -16,7 +16,7 @@ export default function Sky(props:Props){
   renderer.domElement.setAttribute('aria-label','天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。');
   renderer.domElement.tabIndex=0;host.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),world=new THREE.Group();scene.add(world);
-  const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.set(430,300,470);cam.up.set(0,0,-1);
+  const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.copy(live.current.flat?new THREE.Vector3(.001,750,0):new THREE.Vector3(430,300,470));cam.up.set(0,0,-1);
   const controls=new OrbitControls(cam,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.08;controls.enablePan=false;controls.minZoom=.65;controls.maxZoom=2.1;controls.minPolarAngle=.005;controls.maxPolarAngle=Math.PI-.005;
   const disposable:(THREE.Material|THREE.BufferGeometry|THREE.Texture)[]=[];
   const materials:THREE.LineBasicMaterial[]=[];
@@ -64,9 +64,9 @@ export default function Sky(props:Props){
   function up(e:PointerEvent){if(Math.hypot(e.clientX-downX,e.clientY-downY)>5)return;const rect=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(mouse,cam);const hits=ray.intersectObjects(nodes.map(n=>n.mesh));live.current.onSelect(hits[0]?.object.userData.id??null);}
   function key(e:KeyboardEvent){if(e.key==='Escape'){live.current.onSelect(null);return;}if(e.key==='+'||e.key==='=')cam.zoom=Math.min(2.1,cam.zoom*1.1);else if(e.key==='-')cam.zoom=Math.max(.65,cam.zoom/1.1);else if(e.key.startsWith('Arrow')&&!live.current.flat){const s=new THREE.Spherical().setFromVector3(cam.position);if(e.key==='ArrowLeft')s.theta-=.1;if(e.key==='ArrowRight')s.theta+=.1;if(e.key==='ArrowUp')s.phi=Math.max(.05,s.phi-.1);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI-.05,s.phi+.1);cam.position.setFromSpherical(s);}else return;e.preventDefault();cam.updateProjectionMatrix();controls.update();}
   renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('keydown',key);
-  const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);const span=w<600?365:340;cam.left=-span*w/h;cam.right=span*w/h;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();});resize.observe(host);
+  const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(w<=0||h<=0)return;renderer.setSize(w,h);const span=w<600?365:340,aspect=w/h;cam.left=-span*Math.max(1,aspect);cam.right=-cam.left;cam.top=span*Math.max(1,1/aspect);cam.bottom=-cam.top;cam.updateProjectionMatrix();});resize.observe(host);
   let morph=live.current.flat?1:0,last=0,fpsTime=0,frames=0,lastFlat=live.current.flat,reset=live.current.reset;
-  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=cam.position.clone(),transition=1;
+  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=new THREE.Vector3(430,300,470),transition=1;
 
   function updateLine(l:THREE.Line,points:THREE.Vector3[]){const a=l.geometry.getAttribute('position') as THREE.BufferAttribute;points.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;l.geometry.computeBoundingSphere();}
   function animate(now:number){
@@ -74,8 +74,9 @@ export default function Sky(props:Props){
    const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=p.chart;if(!c)return;
    if(p.reset!==reset){reset=p.reset;cam.zoom=1;cam.updateProjectionMatrix();if(p.flat){cam.position.set(.001,750,0);}else{cam.position.set(430,300,470);}controls.target.set(0,0,0);controls.update();transition=1;}
    if(p.flat!==lastFlat){if(p.flat)savedCamera.copy(cam.position);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
+   const moving=transition<1;
    transition=Math.min(1,transition+dt/(p.reduced?.01:1.1));const ease=transition*transition*(3-2*transition);
-   if(transition<1){cam.position.lerpVectors(cameraStart,cameraEnd,ease);cam.lookAt(0,0,0);}else controls.update();
+   if(moving){cam.position.lerpVectors(cameraStart,cameraEnd,ease);cam.lookAt(0,0,0);}else controls.update();
    controls.enableRotate=!p.flat&&transition===1;controls.enabled=transition===1;
    const target=p.flat?1:0;morph=p.reduced?target:THREE.MathUtils.damp(morph,target,6,dt);if(Math.abs(morph-target)<.001)morph=target;
    const rotation=(180-c.asc)*DEG;world.rotation.y=rotation*morph;
