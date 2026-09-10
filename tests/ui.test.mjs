@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {JSDOM} from 'jsdom';
+import {build} from 'esbuild';
+import {mkdir,rm} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const rootPath=resolve('.');
+const dom=new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',{url:'https://celestial.test/',pretendToBeVisual:true});
+for(const key of ['window','document','HTMLElement','HTMLInputElement','Element','Node','Event','MouseEvent','KeyboardEvent','MutationObserver','DocumentFragment'])globalThis[key]=dom.window[key];
+Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
+globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);
+globalThis.requestAnimationFrame=fn=>setTimeout(()=>fn(performance.now()),5);
+globalThis.cancelAnimationFrame=clearTimeout;globalThis.localStorage=dom.window.localStorage;
+globalThis.ResizeObserver=class{observe(){} unobserve(){} disconnect(){}};
+window.ResizeObserver=globalThis.ResizeObserver; window.PointerEvent=window.MouseEvent; globalThis.PointerEvent=window.MouseEvent;
+window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+const registered=new Map();
+document.modelContext={registerTool(tool,{signal}){registered.set(tool.name,tool);signal.addEventListener('abort',()=>registered.delete(tool.name));}};
+let fetches=0;globalThis.fetch=()=>{fetches++;throw Error('Unexpected network call');};
+const {act,createElement}=await import('react'),{createRoot}=await import('react-dom/client');
+await mkdir('.test-build',{recursive:true});
+await build({entryPoints:['app/observatory.tsx'],outfile:'.test-build/app.mjs',bundle:true,platform:'node',format:'esm',packages:'external',alias:{'@':rootPath},plugins:[{name:'scene-test-double',setup(b){b.onResolve({filter:/^\.\/sky$/},()=>({path:'sky',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'import React from "react"; export default function Sky(props){globalThis.__skyProps=props;return React.createElement("div",{"data-testid":"sky","data-flat":props.flat});}',loader:'js',resolveDir:rootPath}));}}]});
+const {default:Home}=await import(pathToFileURL(resolve('.test-build/app.mjs')).href);
+let root;
+const flush=(ms=20)=>act(async()=>{await new Promise(r=>setTimeout(r,ms));});
+const click=async(el)=>{assert.ok(el,'control must exist');await act(async()=>{el.dispatchEvent(new MouseEvent('click',{bubbles:true}));});await flush();};
+const input=async(el,value)=>{await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});};
+const byLabel=label=>document.querySelector('[aria-label="'+label+'"]');
+const displayed=()=>Date.parse(document.querySelector('time').getAttribute('datetime'));
+const button=text=>Array.from(document.querySelectorAll('button')).find(e=>e.textContent.trim()===text);
+await test('interactive local app: time, playback, 2D/3D, aspects and storage',async()=>{
+ root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ assert.ok(Math.abs(displayed()-Date.now())<3000);
+ assert.equal(localStorage.length,0,'nothing saved by default');
+ await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.flat,true);
+ await click(button('3D 天球'));assert.equal(globalThis.__skyProps.flat,false);
+ await click(document.querySelector('.planet-button'));assert.equal(globalThis.__skyProps.selected,'Sun');
+ assert.ok(document.querySelector('.body-detail').textContent.includes('黄緯'));
+ await input(document.querySelector('input[type="datetime-local"]'),'2000-02-29T12:30:00');
+ await act(async()=>document.querySelector('.condition-block form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ assert.equal(new Date(displayed()).getUTCFullYear(),2000);
+ const old=displayed();await click(byLabel('自動再生'));await flush(250);await click(byLabel('一時停止'));assert.ok(displayed()>old+3600000,'time advances during playback');
+ const stopped=displayed();await flush(180);assert.equal(displayed(),stopped,'pause stops playback');
+ await click(button('今'));assert.ok(Math.abs(displayed()-Date.now())<3000);
+ await click(byLabel('1日前'));assert.ok(Math.abs(displayed()-(Date.now()-86400000))<3000);
+ await click(byLabel('1日後'));assert.ok(Math.abs(displayed()-Date.now())<3000);
+ const tool=registered.get('set_observation_time');assert.ok(tool);assert.equal(tool.annotations.readOnlyHint,false);
+ let toolResult;await act(async()=>{toolResult=await tool.execute({datetime:'1990-01-01T00:00:00Z'});});await flush();
+ assert.equal(displayed(),Date.parse('1990-01-01T00:00:00Z'));assert.equal(toolResult.storage,'local browser only');
+ const beforeInvalid=displayed();await assert.rejects(()=>tool.execute({datetime:'not-a-date'}));assert.equal(displayed(),beforeInvalid);
+ await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);
+ assert.equal(JSON.parse(localStorage.getItem('celestial.observatory.v1')).time,displayed());
+ await click(byLabel('このブラウザに日時・地点を保存'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
+ assert.equal(fetches,0,'interactions do not send data');
+ await act(async()=>root.unmount());assert.equal(registered.size,0,'WebMCP unregistered');
+});
+await test('corrupt saved data is ignored without breaking the app',async()=>{
+ localStorage.setItem('celestial.observatory.v1','{broken');
+ root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ assert.ok(Number.isFinite(displayed()));assert.ok(document.querySelector('[role="status"]'));
+ await act(async()=>root.unmount());localStorage.clear();
+});
+dom.window.close();
+
+
+
