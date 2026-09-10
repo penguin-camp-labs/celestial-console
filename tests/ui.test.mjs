@@ -173,6 +173,18 @@ await test('live focus follows wall time each second and restores the chart with
  }finally{await act(async()=>root.unmount());Date.now=realNow;delete document.hidden;localStorage.clear();}
 });
 
+await test('theme selection reaches portals, live viewing and restored observation time without saving location',async()=>{
+ localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
+ assert.equal(document.documentElement.dataset.theme,'dark');
+ await choose('テーマ','light');assert.equal(document.documentElement.dataset.scheme,'light');assert.equal(document.documentElement.classList.contains('dark'),false);assert.equal(globalThis.__skyProps.theme,'light');
+ await click(document.querySelector('.network-button'));assert.ok(document.querySelector('.network-dialog'));assert.equal(document.documentElement.dataset.scheme,'light');await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await choose('テーマ','sky');const time=globalThis.__skyProps.chart.time;await click(button('今の星を眺める'));assert.equal(globalThis.__skyProps.theme,'sky');
+ await choose('眺めるモードのテーマ','dark');assert.equal(globalThis.__skyProps.focus,true);assert.equal(globalThis.__skyProps.theme,'dark');
+ await click(byLabel('眺めるモードを終了'));assert.equal(globalThis.__skyProps.chart.time,time);assert.equal(byLabel('テーマ').value,'dark');assert.equal(localStorage.length,0);
+ await act(async()=>root.unmount());
+});
+
 dom.window.close();
 
 

@@ -8,7 +8,8 @@ import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
-type Props={focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+import {themeAppearance,inkColor} from '@/lib/theme.mjs';
+type Props={theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -28,7 +29,7 @@ export default function Sky(props:Props){
   const materials:THREE.LineBasicMaterial[]=[];
   function line(points:THREE.Vector3[],color:string,opacity=.4,parent:THREE.Object3D=world){
    const geo=new THREE.BufferGeometry().setFromPoints(points),mat=new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false});
-   const obj=new THREE.Line(geo,mat);parent.add(obj);disposable.push(geo,mat);materials.push(mat);return obj;
+   const obj=new THREE.Line(geo,mat);parent.add(obj);mat.userData.themeColor=color;disposable.push(geo,mat);materials.push(mat);return obj;
   }
   function v(lon:number,lat=0,r=218){return new THREE.Vector3(...spherePoint(lon,lat,r));}
   function circle(lat=0,r=218){return Array.from({length:181},(_,i)=>v(i*2,lat,r));}
@@ -39,16 +40,16 @@ export default function Sky(props:Props){
   for(let i=0;i<360;i+=2)line([v(i,0,i%30===0?238:i%10===0?248:253),v(i,0,259)],'#7596a1',i%30===0?.7:.32);
   function label(text:string,color:string,size=24){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='40px "Segoe UI Symbol", "Yu Gothic UI", sans-serif';ctx.fillStyle=color;ctx.fillText(text,128,40);
-   const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false});
-   const sprite=new THREE.Sprite(mat);sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='40px "Segoe UI Symbol", "Yu Gothic UI", sans-serif';ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
+   const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
+   mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
   }
   GLYPHS.forEach((s:string,i:number)=>{const l=label(s,i%3===0?'#a5ded9':'#8daab7',22);l.position.copy(v(i*30+15,0,282));});
   const earthG=new THREE.SphereGeometry(9,24,16),earthM=new THREE.MeshBasicMaterial({color:'#8fe6e0',wireframe:true,transparent:true,opacity:.75}),earth=new THREE.Mesh(earthG,earthM);world.add(earth);disposable.push(earthG,earthM);
   const earthLabel=label('EARTH','#71989c',9);earthLabel.position.set(0,-23,0);
   function makeNode(b:any){
    const geo=new THREE.SphereGeometry(b.id==='Sun'?5.7:b.id==='Moon'?4.8:4,16,12),mat=new THREE.MeshBasicMaterial({color:b.color}),mesh=new THREE.Mesh(geo,mat);mesh.userData.id=b.id;world.add(mesh);disposable.push(geo,mat);
-   const l=label(b.symbol,b.color,23);
+   mat.userData.themeColor=b.color;const l=label(b.symbol,b.color,23);
    const tether=line([v(0),v(0)],b.color,.2);
    return {mesh,label:l,tether,lon:0,lat:0,initialized:false};
   }
@@ -58,7 +59,7 @@ export default function Sky(props:Props){
   const horizon=line(circle(),'#d9b177',.7);horizon.userData.horizon=true;
   const lunarPath=line(circle(),'#9ae0ce',.55);lunarPath.userData.lunarOrbit=true;
   const primePath=line(circle(),'#f4c184',.55);primePath.userData.primeVertical=true;
-  const trailLines=['NorthNode','SouthNode','Vertex'].map((id,i)=>{const geo=new THREE.BufferGeometry().setFromPoints(Array.from({length:i===2?192:144},()=>new THREE.Vector3())),mat=new THREE.LineBasicMaterial({color:['#9ae0ce','#c7b5ed','#f4c184'][i],transparent:true,opacity:.55,depthWrite:false}),l=new THREE.LineSegments(geo,mat);l.userData.trail=id;world.add(l);disposable.push(geo,mat);return l;});
+  const trailLines=['NorthNode','SouthNode','Vertex'].map((id,i)=>{const geo=new THREE.BufferGeometry().setFromPoints(Array.from({length:i===2?192:144},()=>new THREE.Vector3())),mat=new THREE.LineBasicMaterial({color:['#9ae0ce','#c7b5ed','#f4c184'][i],transparent:true,opacity:.55,depthWrite:false}),l=new THREE.LineSegments(geo,mat);mat.userData.themeColor=['#9ae0ce','#c7b5ed','#f4c184'][i];l.userData.trail=id;world.add(l);disposable.push(geo,mat);return l;});
   const directions=[label('東 E','#c0d4d8',14),label('西 W','#c0d4d8',14),label('北 N','#c0d4d8',14),label('南 S','#c0d4d8',14),label('天頂','#93b8c0',12)];
   const equator=line(circle(),'#90a6d8',.3);
   const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
@@ -73,7 +74,27 @@ export default function Sky(props:Props){
    const mat=new THREE.PointsMaterial({color:'#d5e6f2',size:layer.size,transparent:true,opacity:layer.opacity,sizeAttenuation:false,depthWrite:false});
    const points=new THREE.Points(geo,mat);points.userData.starIds=entries.map(s=>s.hip);starField.add(points);disposable.push(geo,mat);return {points,entries,opacity:layer.opacity};
   });
-  let starMinute=NaN;
+
+  // A cheap sky dome: no textures, weather requests, ray marching or extra render pass.
+  const skyGeometry=new THREE.SphereGeometry(1800,24,16);
+  const skyMaterial=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,depthTest:false,toneMapped:false,
+   uniforms:{zenith:{value:new THREE.Color()},horizon:{value:new THREE.Color()},ground:{value:new THREE.Color()},sunDirection:{value:new THREE.Vector3()},glow:{value:0}},
+   vertexShader:'varying vec3 worldPosition; void main(){vec4 w=modelMatrix*vec4(position,1.0);worldPosition=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}',
+   fragmentShader:`uniform vec3 zenith,horizon,ground,sunDirection;uniform float glow;varying vec3 worldPosition;
+    void main(){vec3 direction=normalize(worldPosition-cameraPosition);float height=direction.y;
+     vec3 bearing=normalize(vec3(direction.x,0.0,direction.z)+vec3(0.00001,0.0,0.0));
+     vec3 sunBearing=normalize(vec3(sunDirection.x,0.0,sunDirection.z)+vec3(0.00001,0.0,0.0));
+     float towards=pow(max(0.0,dot(bearing,sunBearing)),4.0);
+     float haze=pow(1.0-clamp(height,0.0,1.0),3.0);
+     vec3 colour=mix(zenith,horizon,haze*mix(1.0,0.25+0.75*towards,glow));
+     colour=mix(colour,ground,smoothstep(0.0,0.16,-height));gl_FragColor=vec4(colour,1.0);
+     #include <colorspace_fragment>
+    }`});
+  const skyDome=new THREE.Mesh(skyGeometry,skyMaterial);skyDome.userData.skyDome=true;skyDome.renderOrder=-1000;skyDome.frustumCulled=false;scene.add(skyDome);disposable.push(skyGeometry,skyMaterial);
+
+  scene.traverse(o=>{const material=(o as THREE.Mesh).material;if(material&&!Array.isArray(material)&&'color' in material&&!(material instanceof THREE.PointsMaterial)){if(!material.userData.themeColor)material.userData.themeColor='#'+(material as THREE.MeshBasicMaterial).color.getHexString();}});
+  let lastTheme='',starMinute=NaN;
+
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downX=0,downY=0;const pointers=new Map<number,{x:number;y:number}>();let pinch=0;
   function down(e:PointerEvent){rotationPauseUntil=last+5000;downX=e.clientX;downY=e.clientY;if(live.current.observer&&!live.current.flat){pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});renderer.domElement.setPointerCapture?.(e.pointerId);if(pointers.size===2){const a=[...pointers.values()];pinch=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}}}
   function move(e:PointerEvent){const prev=pointers.get(e.pointerId);if(!prev)return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const a=[...pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(pinch>0&&d>0)eye.fov=THREE.MathUtils.clamp(eye.fov*pinch/d,35,110);pinch=d;eye.updateProjectionMatrix();}else{azimuth-=(e.clientX-prev.x)*.18;altitude=THREE.MathUtils.clamp(altitude+(e.clientY-prev.y)*.18,-89,89);}}
@@ -118,7 +139,7 @@ export default function Sky(props:Props){
    const k=p.reduced?1:1-Math.exp(-dt*18);
    nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=p.playing||stopped||b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(hideBelow&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
    const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
-   edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(p.focus?.26:(chosen?.65:.065)):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a)e.mat.color.set(a.color);e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
+   edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(p.focus?.26:(chosen?.65:.065)):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a){e.mat.color.set(a.color);e.mat.userData.themeColor=a.color;}e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
    updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=.5*(1-morph);
    updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=.3*(1-morph);
@@ -139,7 +160,15 @@ export default function Sky(props:Props){
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
    if(minute!==starMinute){starMinute=minute;const positions=starPositions(minute*60000);starLayers.forEach(({points,entries})=>{const attr=points.geometry.getAttribute('position') as THREE.BufferAttribute;entries.forEach((s,i)=>{const v=positions[s.index];attr.setXYZ(i,v[0]*325,v[1]*325,v[2]*325);});attr.needsUpdate=true;points.geometry.computeBoundingSphere();});}
    if(p.focus)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible){o.visible=false;o.userData.hiddenByGround=true;}});
-   activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));if(hideBelow)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=morph<.995;starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph);});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
+   activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));if(hideBelow)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=morph<.995;
+   const theme=p.theme??'dark',appearance=themeAppearance(theme,c),bright=appearance.light;
+   const themeKey=theme+':'+bright;
+   if(lastTheme!==themeKey){lastTheme=themeKey;if(host?.parentElement)host.parentElement.dataset.skyScheme=bright?'light':'dark';}
+   skyDome.visible=theme==='sky'&&morph<.995;skyDome.position.copy(activeCamera.position);
+   skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;
+   // Update colour, never recreate geometry/camera when switching themes.
+   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){const belowDarkSky=theme==='sky'&&!p.flat&&o.position.clone().applyQuaternion(world.quaternion).y < -35;mat.color.set(inkColor(mat.userData.themeColor,bright&&!belowDarkSky));}});
+   starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
   renderer.setAnimationLoop(animate);
   const lost=(e:Event)=>{e.preventDefault();renderer.setAnimationLoop(null);setFailure('描画への接続が失われました。ページを再読み込みしてください。');};renderer.domElement.addEventListener('webglcontextlost',lost);

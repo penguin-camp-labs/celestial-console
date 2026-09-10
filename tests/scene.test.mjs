@@ -147,4 +147,20 @@ await test('real star field and live orbit preserve positions and restore the pr
  await act(async()=>root.unmount());
 });
 
+await test('themes preserve camera and chart geometry while solar daylight controls the background stars',async()=>{
+ const root=createRoot(document.getElementById('root'));
+ const day={...calculate(Date.parse('2026-03-20T12:00:00Z'),0,0),time:Date.parse('2026-03-20T12:00:00Z')};
+ let props={chart:day,theme:'dark',flat:false,aspects:true,grid:true,horizon:true,houses:true,houseSystem:'equal',selected:'Sun',onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ let tick=1000;const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(tick+=20));};
+ await render();const camera=globalThis.__camera,position=camera.position.clone();let stars,dome,sun;globalThis.__scene.traverse(o=>{if(o.userData.starField)stars=o;if(o.userData.skyDome)dome=o;if(o.userData.id==='Sun')sun=o;});
+ const original=sun.position.clone();assert.equal(dome.visible,false);assert.equal(stars.children[0].material.opacity,.255);
+ props={...props,theme:'light'};await render();assert.equal(globalThis.__camera,camera);assert.ok(camera.position.distanceTo(position)<.0001);assert.ok(sun.position.distanceTo(original)<.0001);assert.equal(dome.visible,false);assert.notEqual(sun.material.color.getHexString(),day.bodies[0].color.slice(1));
+ props={...props,theme:'sky'};await render();assert.equal(dome.visible,true);assert.equal(stars.children[0].material.opacity,0);assert.ok(sun.visible,'markers remain available to read the horoscope');
+ const night={...calculate(Date.parse('2026-03-20T00:00:00Z'),0,0),time:Date.parse('2026-03-20T00:00:00Z')};
+ props={...props,chart:night};await render();assert.equal(stars.children[0].material.opacity,.255);
+ props={...props,flat:true};await render();assert.equal(dome.visible,false);assert.equal(stars.visible,false);
+ props={...props,flat:false,theme:'dark',chart:day};await render();assert.equal(dome.visible,false);assert.equal(sun.material.color.getHexString(),day.bodies[0].color.slice(1));
+ await act(async()=>root.unmount());
+});
+
 dom.window.close();

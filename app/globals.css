@@ -38,3 +38,46 @@ html{scroll-behavior:smooth}body{font-feature-settings:"tnum";overflow-x:hidden}
 .privacy-footer{flex-wrap:wrap}.creator-credit{width:100%;flex:0 0 auto;margin:0;padding-top:12px;border-top:1px solid #1c303b;font-size:14px;color:#8ea9b5;overflow-wrap:anywhere}
 
 .privacy-footer>.creator-credit{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.creator-roles{font-size:13px}.creator-credit a{font-size:12px;text-decoration:underline;text-underline-offset:3px}
+
+/* Theme controls stay available in the quiet live view, including on phones. */
+.theme-control{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted-foreground)}
+.theme-control select,.live-actions select{border:1px solid var(--border);border-radius:4px;background:var(--popover);color:var(--foreground);font-size:14px;min-height:40px;padding:7px 10px;max-width:140px}
+.theme-control select:focus-visible,.live-actions select:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+[data-theme=sky] .sky-host{inset:0}
+[data-theme=sky] .scene-heading,[data-theme=sky] .axis-readout,[data-theme=sky] .scene-caption,[data-theme=sky] .scene-legend{padding:5px 8px;background:color-mix(in srgb,var(--background) 85%,transparent);border-radius:4px}
+html[data-scheme=light]{color-scheme:light;--background:#f2f6fa;--foreground:#192f40;--primary:#006e65;--primary-foreground:#fff;--muted:#e0ebef;--muted-foreground:#526b7d;--input:#a8bdc9;--ring:#007c72;--border:#c4d3dd;--popover:#fff;--card:#fff}
+html[data-scheme=light] :is(input,select){color-scheme:light}
+html[data-scheme=light] :is(button,input){background:#f8fbfd}
+html[data-scheme=light] button[aria-pressed=true]{background:#d7eee9;color:#075d55;border-color:#608f8b}
+html[data-scheme=light] :is(.mast,.conditions,.privacy-footer){background:#f2f6fa}
+html[data-scheme=light] .telemetry{background:linear-gradient(160deg,#fff,#edf4f8);border-color:var(--border);scrollbar-color:#a8bdc9 transparent}
+html[data-scheme=light] .timeline{background:#eaf1f6}
+.stage[data-sky-scheme=light]{background:radial-gradient(ellipse at 46% 50%,#fff 0%,#edf4f9 65%,#e4edf4 100%)}
+html[data-scheme=light] :is(.brand .brand-sub,.dim,.section-note,.scene-heading p,.scene-heading .eyebrow,.scene-heading p span,.axis-readout span,.axis-readout small,.scene-caption,.scene-legend,.tag,.planet-table th,.aspect-info small,.body-detail dt,.time-display>.eyebrow,.rail-labels,.anchor-button,.range-control,.condition-block>.eyebrow,.field>span,.privacy-footer,.version,.help-copy,.creator-credit,.option-columns,.asteroid-options small,.pattern-card span,.pattern-card small,.birth-trigger small,.birth-form .field>span,.birth-form summary,.city-results small,.live-clock,.live-zone){color:#526b7d}
+html[data-scheme=light] :is(.axis-readout b,.position-cell,.aspect-info>span,.aspect-info b,.date-number,.time-display time,.help-copy strong,.network-settings h3,.selected-city,.live-clock time){color:#1d3b4d}
+html[data-scheme=light] :is(.brand-mark,.status,.setting-orb b,.apply-button,.birth-form legend){color:#006e65}
+html[data-scheme=light] :is(.view-toggle,.icon-button,.choice,.body-detail,.network-button,.observer-tools button,.observer-tools .toggle-row,.location-button,.birth-trigger,.city-results button,.pattern-card,.live-entry){background:#f7fbfd!important;color:#234957;border-color:#a7bfca}
+html[data-scheme=light] :is(.view-toggle button[aria-pressed=true],.city-results button:hover,.city-results button[aria-pressed=true],.pattern-card[aria-pressed=true],.planet-table tr[data-selected=true]){background:#d7eee9!important;color:#075d55}
+html[data-scheme=light] :is(.help-dialog,.settings-dialog,.network-dialog,.birth-dialog){background:#f8fbfd!important;color:var(--foreground)!important;border-color:var(--border)!important}
+html[data-scheme=light] :is(.aspect-option input,.birth-form input,.birth-form select){background:#fff;color:#192f40;border-color:#a8bdc9}
+html[data-scheme=light] :is(.toggle-row,.aspect-options,.aspect-option,.asteroid-options>div,.birth-form fieldset,.city-results,.city-results button,.point-settings,.creator-credit,.planet-table td,.aspect-item,.tag){border-color:#c4d3dd}
+html[data-scheme=light] .aspect-pair button{color:#284b5b}
+html[data-scheme=light] :is(.retro,.form-error){color:#a73525}
+html[data-scheme=light] .compound-list{border-color:#c2aa75}
+html[data-scheme=light] .compound-list>.eyebrow{color:#79541b}
+html[data-scheme=light] .play-button,html[data-scheme=light] .birth-submit{background:#096b61;color:white;border-color:#096b61}
+html[data-scheme=light] .play-button:hover,html[data-scheme=light] .birth-submit:hover{background:#07554e}
+html[data-scheme=light] .rail-ticks i{background:#a4bac7}
+html[data-scheme=light] .rail-ticks .major{background:#607f8f}
+html[data-scheme=light] .time-slider [data-slot=slider-track]{background:#c3d4de}
+html[data-scheme=light] .time-slider [data-slot=slider-thumb]{background:#096b61;border-color:#096b61;box-shadow:none}
+html[data-scheme=light] :is(.notice,.render-error){background:#eef8f6;color:#214b46;border-color:#6f9f96}
+html[data-scheme=light] .is-live{background:var(--background)}
+html[data-scheme=light] .live-bar{background:linear-gradient(#f2f6fae6,transparent)}
+html[data-scheme=light] .live-actions button{background:#f8fbfde6;color:#234957;border-color:#a7bfca}
+@media(max-width:1000px){.mast-right .status{display:none}}
+@media(max-width:600px){.theme-control>span{display:none}.mast-right{gap:8px}.theme-control select{max-width:110px}.live-bar{flex-wrap:wrap}.live-actions{flex-wrap:wrap;justify-content:flex-end}.live-actions select{max-width:108px}.live-clock{flex:1;min-width:130px}.live-actions{max-width:100%}}
+@media(max-width:370px){.mast{height:auto;min-height:78px;flex-wrap:wrap;gap:12px}.mast-right{margin-left:auto}}
+html[data-scheme=light] [data-slot=switch][data-checked]{background:#096b61!important;border-color:#096b61}
+html[data-scheme=light] [data-slot=switch][data-unchecked]{background:#b2c4cf!important;border-color:#8ca7b6}
+html[data-scheme=light] [data-slot=switch-thumb]{background:#fff}
