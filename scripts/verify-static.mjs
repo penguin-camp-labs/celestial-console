@@ -8,4 +8,5 @@ assert.ok(!csp.match(/script-src[^;]*unsafe-/));assert.match(csp,/form-action 'n
 for(const m of html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"]+)"[^>]*>/g)){assert.ok(m[1].startsWith('/'));await stat('dist/client'+m[1]);}
 for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g))if(!m[1].includes('src=')&&m[2].trim())assert.ok(csp.includes(createHash('sha256').update(m[2]).digest('base64')));
 const headers=await readFile('dist/client/_headers','utf8');assert.match(headers,/frame-ancestors 'none'/);assert.match(headers,/X-Content-Type-Options: nosniff/);
+assert.match(headers,/geolocation=\(self\)/);
 console.log('Static assets and CSP verified; no external startup assets.');

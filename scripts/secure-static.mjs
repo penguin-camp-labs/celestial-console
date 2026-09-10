@@ -13,7 +13,7 @@ for(const file of (await readdir(dir)).filter(f=>f.endsWith('.html'))){
  await writeFile(join(dir,file),html);
 }
 const csp="default-src 'self'; script-src 'self' "+[...scripts].join(' ')+"; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'; worker-src 'none'";
-await writeFile(join(dir,'_headers'),'/*\n  Content-Security-Policy: '+csp+'\n  Referrer-Policy: no-referrer\n  X-Content-Type-Options: nosniff\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()\n  Strict-Transport-Security: max-age=31536000\n');
+await writeFile(join(dir,'_headers'),'/*\n  Content-Security-Policy: '+csp+'\n  Referrer-Policy: no-referrer\n  X-Content-Type-Options: nosniff\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=()\n  Strict-Transport-Security: max-age=31536000\n');
 const packages=['react','react-dom','react-server-dom-webpack','three','astronomy-engine','@base-ui/react','lucide-react','clsx','tailwind-merge','class-variance-authority','@floating-ui/react','@floating-ui/dom','@floating-ui/core','@floating-ui/utils','@floating-ui/react-dom','tabbable','use-sync-external-store'];
 let notices='CELESTIAL — Third-party notices\n';
 for(const pkg of packages){const path=join('node_modules',pkg);let files;try{files=await readdir(path);}catch{continue;}const license=files.find(f=>/^licen[cs]e(\.|$)/i.test(f));if(license)notices+='\n\n--- '+pkg+' ---\n'+await readFile(join(path,license),'utf8');}

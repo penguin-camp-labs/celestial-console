@@ -5,6 +5,8 @@ import {build} from 'esbuild';
 import {mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {sensitivePoints,pointTrails} from '../lib/observer.mjs';
+import {Vector3} from 'three';
 import {calculate} from '../lib/engine.mjs';
 const dom=new JSDOM('<div id="root"></div>',{url:'https://celestial.test/',pretendToBeVisual:true});
 for(const k of ['window','document','HTMLElement','HTMLCanvasElement','Element','Node','Event','MouseEvent','KeyboardEvent'])globalThis[k]=dom.window[k];
@@ -80,6 +82,26 @@ await test('additional bodies and compound lines appear and disappear without re
  assert.ok(extra.visible);assert.equal(globalThis.__camera,camera);assert.equal(edges.filter(e=>e.visible).length,1);
  props={...props,aspects:false};await render();await frames();assert.equal(edges.filter(e=>e.visible).length,0);
  props={...props,chart,aspects:true};await render();await frames();assert.equal(extra.visible,false);
+ await act(async()=>root.unmount());
+});
+
+await test('observer frame projects the horizon horizontally and supports an actual inside-sphere camera',async()=>{
+ const root=createRoot(document.getElementById('root')),time=Date.UTC(2026,8,10),base=calculate(time),points=sensitivePoints(time,35.6812,139.7671,base);
+ const chart={...base,bodies:[...base.bodies,...points.points],moonOrbit:points.moonOrbit,pointTrails:pointTrails(time,35.6812,139.7671)};
+ let props={chart,flat:false,observer:false,level:0,heading:90,headings:0,nodeOrbit:true,primeVertical:true,trails:true,aspects:true,grid:true,horizon:true,houses:false,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ const render=async()=>act(async()=>root.render(createElement(Sky,props)));await render();
+ let tick=1000;const advance=async()=>act(async()=>globalThis.__animate(tick+=20));await advance();
+ let horizon,orbit,prime;const trails=[];globalThis.__scene.traverse(o=>{if(o.userData.horizon)horizon=o;if(o.userData.lunarOrbit)orbit=o;if(o.userData.primeVertical)prime=o;if(o.userData.trail)trails.push(o);});
+ const checkHorizon=()=>{const positions=horizon.geometry.getAttribute('position');for(let i=0;i<positions.count;i++){const v=new Vector3().fromBufferAttribute(positions,i).applyMatrix4(horizon.matrixWorld);assert.ok(Math.abs(v.y)<1e-4,'world horizon height');v.project(globalThis.__camera);assert.ok(Math.abs(v.y)<1e-5,'horizontal line on screen');}};
+ checkHorizon();assert.ok(orbit.visible&&prime.visible);assert.ok(trails.every(t=>t.visible));
+ props={...props,observer:true,headings:1,heading:90};await render();await advance();
+ assert.ok(globalThis.__camera.isPerspectiveCamera);assert.equal(globalThis.__camera.position.length(),0);
+ const forward=new Vector3();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.distanceTo(new Vector3(1,0,0))<1e-8,'east is the requested direction');assert.equal(globalThis.__renderer.clippingPlanes.length,1);
+ const visibleBodies=[];globalThis.__scene.traverse(o=>{if(o.userData.id&&o.visible)visibleBodies.push(o);});assert.ok(visibleBodies.length>0);for(const b of visibleBodies)assert.ok(b.getWorldPosition(new Vector3()).y>=-.01);
+ props={...props,headings:2,heading:270};await render();await advance();globalThis.__camera.getWorldDirection(forward);assert.ok(forward.distanceTo(new Vector3(-1,0,0))<1e-8,'west orientation');
+ props={...props,observer:false,level:1,nodeOrbit:false,primeVertical:false,trails:false};await render();await advance();
+ assert.ok(globalThis.__camera.isOrthographicCamera);checkHorizon();assert.equal(globalThis.__renderer.clippingPlanes.length,0);assert.ok(!orbit.visible&&!prime.visible&&trails.every(t=>!t.visible));
+ globalThis.__camera.position.set(300,250,500);await advance();props={...props,flat:true};await render();await advance();props={...props,flat:false,level:2};await render();await advance();checkHorizon();
  await act(async()=>root.unmount());
 });
 dom.window.close();

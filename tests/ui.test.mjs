@@ -77,9 +77,9 @@ await test('extended controls update aspects, individual asteroids and a private
  await click(document.querySelector('.network-button'));
  await input(byLabel('セミセクスタイルのオーブ'),'1.5');
  await click(byLabel('セレス / 1'));await flush(80);
- assert.equal(globalThis.__skyProps.chart.bodies.length,11);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
- await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,12);
- await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,11);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ assert.equal(globalThis.__skyProps.chart.bodies.length,14);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,15);
+ await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,14);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
  await click(byLabel('複合アスペクト'));await click(byLabel('ヨッド'));assert.equal(byLabel('ヨッド').getAttribute('aria-checked'),'false');
  await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
  await click(document.querySelector('.birth-trigger'));await flush(50);
@@ -87,10 +87,38 @@ await test('extended controls update aspects, individual asteroids and a private
  await input(byLabel('出生都市を検索'),'東京');await click(document.querySelector('.city-results button'));
  await act(async()=>document.querySelector('.birth-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush(150);
  assert.equal(displayed(),Date.parse('2000-02-29T03:30:00Z'));
- assert.equal(globalThis.__skyProps.chart.bodies.length,11);
+ assert.equal(globalThis.__skyProps.chart.bodies.length,14);
  assert.equal(localStorage.length,0,'birth data is not saved by default');
  assert.deepEqual(calls.map(c=>c.url),['/ephemeris/asteroids.bin','/data/cities.json'],'only fixed same-site assets are requested, without birth parameters');
  await act(async()=>root.unmount());
+});
+
+await test('ground controls, point visibility and opt-in GPS keep location private',async()=>{
+ let gpsCalls=0,pending;const requests=[];globalThis.fetch=async(...args)=>{requests.push(args);throw Error('Unexpected request');};
+ Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){gpsCalls++;pending={ok,fail,options};}}});
+ localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ assert.equal(gpsCalls,0,'GPS never starts on page load');assert.ok(!document.body.textContent.includes('空を、立体で読み解く。'));
+ await click(button('地上視点'));assert.equal(globalThis.__skyProps.observer,true);assert.equal(globalThis.__skyProps.flat,false);
+ await click(byLabel('西を向く'));assert.equal(globalThis.__skyProps.heading,270);
+ const oldLevel=globalThis.__skyProps.level;await click(button('地平線を水平に'));assert.equal(globalThis.__skyProps.level,oldLevel+1);
+ await click(document.querySelector('.network-button'));
+ for(const id of ['NorthNode','SouthNode','Vertex'])assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id===id));
+ await click(byLabel('ドラゴンヘッド'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'));
+ await click(byLabel('ドラゴンテイル'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='SouthNode'));
+ await click(byLabel('バーテックス'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Vertex'));
+ await click(byLabel('月の軌道面'));assert.equal(globalThis.__skyProps.nodeOrbit,false);
+ await click(byLabel('卯酉線（バーテックスの基準）'));assert.equal(globalThis.__skyProps.primeVertical,false);
+ await click(byLabel('感受点の移動軌跡'));assert.equal(globalThis.__skyProps.trails,true);assert.equal(globalThis.__skyProps.chart.pointTrails.length,3);
+ await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ const beforeTime=displayed();await click(button('現在地を取得（GPS）'));assert.equal(gpsCalls,1);assert.equal(pending.options.enableHighAccuracy,true);assert.equal(pending.options.maximumAge,0);
+ await act(async()=>pending.ok({coords:{latitude:-33.8688,longitude:151.2093,accuracy:12}}));await flush();
+ assert.equal(displayed(),beforeTime,'GPS does not replace observation time');
+ assert.equal(document.querySelector('input[min="-89"]').value,'-33.8688');assert.equal(document.querySelector('input[min="-180"]').value,'151.2093');
+ assert.equal(localStorage.length,0);assert.equal(requests.length,0);
+ await click(button('現在地を取得（GPS）'));await act(async()=>pending.fail({code:1}));await flush();assert.match(document.querySelector('.notice').textContent,/許可/);
+ assert.equal(document.querySelector('input[min="-89"]').value,'-33.8688','denial leaves location unchanged');
+ await click(button('現在地を取得（GPS）'));await act(async()=>pending.fail({code:3}));await flush();assert.match(document.querySelector('.notice').textContent,/タイムアウト/);
+ await act(async()=>root.unmount());delete navigator.geolocation;
 });
 dom.window.close();
 

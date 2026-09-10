@@ -3,9 +3,10 @@ import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
+import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
-type Props={chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+type Props={observer?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -17,8 +18,10 @@ export default function Sky(props:Props){
   renderer.domElement.setAttribute('aria-label','天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。');
   renderer.domElement.tabIndex=0;host.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),world=new THREE.Group();scene.add(world);
-  const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.copy(live.current.flat?new THREE.Vector3(.001,750,0):new THREE.Vector3(430,300,470));cam.up.set(0,0,-1);
+  const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.copy(live.current.flat?new THREE.Vector3(.001,750,0):new THREE.Vector3(0,0,760));cam.up.set(0,1,0);
   const controls=new OrbitControls(cam,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.08;controls.enablePan=false;controls.minZoom=.65;controls.maxZoom=2.1;controls.minPolarAngle=.005;controls.maxPolarAngle=Math.PI-.005;
+  const eye=new THREE.PerspectiveCamera(85,1,.1,4000);eye.position.set(0,0,0);eye.up.set(0,1,0);let activeCamera:THREE.Camera=cam,azimuth=90,altitude=0,lastHeading=live.current.headings??0,lastLevel=live.current.level??0;const horizonClip=new THREE.Plane(new THREE.Vector3(0,1,0),.01);
+  if(live.current.flat)cam.up.set(0,0,-1);
   const disposable:(THREE.Material|THREE.BufferGeometry|THREE.Texture)[]=[];
   const materials:THREE.LineBasicMaterial[]=[];
   function line(points:THREE.Vector3[],color:string,opacity=.4,parent:THREE.Object3D=world){
@@ -50,7 +53,11 @@ export default function Sky(props:Props){
   const nodes=live.current.chart.bodies.map(makeNode) as ReturnType<typeof makeNode>[];
   const edges:{line:THREE.Line;mat:THREE.LineBasicMaterial;i:number;j:number}[]=[];
   for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}
-  const horizon=line(circle(),'#d9b177',.5);
+  const horizon=line(circle(),'#d9b177',.7);horizon.userData.horizon=true;
+  const lunarPath=line(circle(),'#9ae0ce',.55);lunarPath.userData.lunarOrbit=true;
+  const primePath=line(circle(),'#f4c184',.55);primePath.userData.primeVertical=true;
+  const trailLines=['NorthNode','SouthNode','Vertex'].map((id,i)=>{const geo=new THREE.BufferGeometry().setFromPoints(Array.from({length:i===2?192:144},()=>new THREE.Vector3())),mat=new THREE.LineBasicMaterial({color:['#9ae0ce','#c7b5ed','#f4c184'][i],transparent:true,opacity:.55,depthWrite:false}),l=new THREE.LineSegments(geo,mat);l.userData.trail=id;world.add(l);disposable.push(geo,mat);return l;});
+  const directions=[label('東 E','#c0d4d8',14),label('西 W','#c0d4d8',14),label('北 N','#c0d4d8',14),label('南 S','#c0d4d8',14),label('天頂','#93b8c0',12)];
   const equator=line(circle(),'#90a6d8',.3);
   const houseLines=Array.from({length:12},()=>line([v(0,0,18),v(0,0,236)],'#8195a3',.35));
   const houseLabels=Array.from({length:12},(_,i)=>label(String(i+1),'#7c96a6',11));
@@ -60,48 +67,64 @@ export default function Sky(props:Props){
   const starGeo=new THREE.BufferGeometry();const stars:number[]=[];let seed=137;
   const rand=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
   for(let i=0;i<380;i++){const az=rand()*Math.PI*2,z=rand()*2-1,r=900;stars.push(r*Math.sqrt(1-z*z)*Math.cos(az),r*z,r*Math.sqrt(1-z*z)*Math.sin(az));}
-  starGeo.setAttribute('position',new THREE.Float32BufferAttribute(stars,3));const starMat=new THREE.PointsMaterial({color:'#8ca5b8',size:1.2,transparent:true,opacity:.45,sizeAttenuation:false});scene.add(new THREE.Points(starGeo,starMat));disposable.push(starGeo,starMat);
-  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downX=0,downY=0;
-  function down(e:PointerEvent){downX=e.clientX;downY=e.clientY;}
-  function up(e:PointerEvent){if(Math.hypot(e.clientX-downX,e.clientY-downY)>5)return;const rect=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(mouse,cam);const hits=ray.intersectObjects(nodes.filter(n=>n.mesh.visible).map(n=>n.mesh));live.current.onSelect(hits[0]?.object.userData.id??null);}
-  function key(e:KeyboardEvent){if(e.key==='Escape'){live.current.onSelect(null);return;}if(e.key==='+'||e.key==='=')cam.zoom=Math.min(2.1,cam.zoom*1.1);else if(e.key==='-')cam.zoom=Math.max(.65,cam.zoom/1.1);else if(e.key.startsWith('Arrow')&&!live.current.flat){const s=new THREE.Spherical().setFromVector3(cam.position);if(e.key==='ArrowLeft')s.theta-=.1;if(e.key==='ArrowRight')s.theta+=.1;if(e.key==='ArrowUp')s.phi=Math.max(.05,s.phi-.1);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI-.05,s.phi+.1);cam.position.setFromSpherical(s);}else return;e.preventDefault();cam.updateProjectionMatrix();controls.update();}
-  renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('keydown',key);
-  const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(w<=0||h<=0)return;renderer.setSize(w,h);const span=w<600?365:340,aspect=w/h;cam.left=-span*Math.max(1,aspect);cam.right=-cam.left;cam.top=span*Math.max(1,1/aspect);cam.bottom=-cam.top;cam.updateProjectionMatrix();});resize.observe(host);
+  starGeo.setAttribute('position',new THREE.Float32BufferAttribute(stars,3));const starMat=new THREE.PointsMaterial({color:'#8ca5b8',size:1.2,transparent:true,opacity:.45,sizeAttenuation:false});const starField=new THREE.Points(starGeo,starMat);scene.add(starField);disposable.push(starGeo,starMat);
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downX=0,downY=0;const pointers=new Map<number,{x:number;y:number}>();let pinch=0;
+  function down(e:PointerEvent){downX=e.clientX;downY=e.clientY;if(live.current.observer&&!live.current.flat){pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});renderer.domElement.setPointerCapture?.(e.pointerId);if(pointers.size===2){const a=[...pointers.values()];pinch=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}}}
+  function move(e:PointerEvent){const prev=pointers.get(e.pointerId);if(!prev)return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const a=[...pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(pinch>0&&d>0)eye.fov=THREE.MathUtils.clamp(eye.fov*pinch/d,35,110);pinch=d;eye.updateProjectionMatrix();}else{azimuth-=(e.clientX-prev.x)*.18;altitude=THREE.MathUtils.clamp(altitude+(e.clientY-prev.y)*.18,-89,89);}}
+  function cancel(e:PointerEvent){pointers.delete(e.pointerId);pinch=0;}
+  function wheel(e:WheelEvent){if(!live.current.observer||live.current.flat)return;e.preventDefault();eye.fov=THREE.MathUtils.clamp(eye.fov+e.deltaY*.03,35,110);eye.updateProjectionMatrix();}
+  function up(e:PointerEvent){cancel(e);if(Math.hypot(e.clientX-downX,e.clientY-downY)>5)return;const rect=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(mouse,activeCamera);const hits=ray.intersectObjects(nodes.filter(n=>n.mesh.visible).map(n=>n.mesh));live.current.onSelect(hits[0]?.object.userData.id??null);}
+  function key(e:KeyboardEvent){if(e.key==='Escape'){live.current.onSelect(null);return;}if(live.current.observer&&!live.current.flat){if(e.key==='ArrowLeft')azimuth-=5;else if(e.key==='ArrowRight')azimuth+=5;else if(e.key==='ArrowUp')altitude=Math.min(89,altitude+5);else if(e.key==='ArrowDown')altitude=Math.max(-89,altitude-5);else if(e.key==='+'||e.key==='=')eye.fov=Math.max(35,eye.fov-5);else if(e.key==='-')eye.fov=Math.min(110,eye.fov+5);else return;e.preventDefault();eye.updateProjectionMatrix();return;}if(e.key==='+'||e.key==='=')cam.zoom=Math.min(2.1,cam.zoom*1.1);else if(e.key==='-')cam.zoom=Math.max(.65,cam.zoom/1.1);else if(e.key.startsWith('Arrow')&&!live.current.flat){const s=new THREE.Spherical().setFromVector3(cam.position);if(e.key==='ArrowLeft')s.theta-=.1;if(e.key==='ArrowRight')s.theta+=.1;if(e.key==='ArrowUp')s.phi=Math.max(.05,s.phi-.1);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI-.05,s.phi+.1);cam.position.setFromSpherical(s);}else return;e.preventDefault();cam.updateProjectionMatrix();controls.update();}
+  renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointercancel',cancel);renderer.domElement.addEventListener('wheel',wheel,{passive:false});renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('keydown',key);
+  const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(w<=0||h<=0)return;renderer.setSize(w,h);eye.aspect=w/h;eye.updateProjectionMatrix();const span=w<600?365:340,aspect=w/h;cam.left=-span*Math.max(1,aspect);cam.right=-cam.left;cam.top=span*Math.max(1,1/aspect);cam.bottom=-cam.top;cam.updateProjectionMatrix();});resize.observe(host);
   let morph=live.current.flat?1:0,last=0,fpsTime=0,frames=0,lastFlat=live.current.flat,reset=live.current.reset;
-  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=new THREE.Vector3(430,300,470),transition=1;
+  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=new THREE.Vector3(0,0,760),transition=1;
+  let upStart=cam.up.clone(),upEnd=cam.up.clone();
 
   function updateLine(l:THREE.Line,points:THREE.Vector3[]){const a=l.geometry.getAttribute('position') as THREE.BufferAttribute;points.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;l.geometry.computeBoundingSphere();}
   function animate(now:number){
    if(document.hidden){last=now;return;}
-   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=p.chart;if(!c)return;
+   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=p.chart;if(!c)return;const ground=!!p.observer&&!p.flat;world.traverse(o=>{if(o.userData.hiddenByGround){o.visible=true;o.userData.hiddenByGround=false;}});
+   if((p.headings??0)!==lastHeading){lastHeading=p.headings??0;azimuth=p.heading??90;altitude=0;}
+   if((p.level??0)!==lastLevel){lastLevel=p.level??0;controls.enableDamping=false;controls.update();controls.enableDamping=true;lastFlat=p.flat;morph=0;savedCamera.set(0,0,760);cam.position.set(0,0,760);cam.up.set(0,1,0);controls.target.set(0,0,0);transition=1;azimuth=p.heading??90;altitude=0;controls.update();}
    for(const b of c.bodies)if(!nodes.some(n=>n.mesh.userData.id===b.id)){const j=nodes.length;nodes.push(makeNode(b));for(let i=0;i<j;i++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}}
-   if(p.reset!==reset){reset=p.reset;cam.zoom=1;cam.updateProjectionMatrix();if(p.flat){cam.position.set(.001,750,0);}else{cam.position.set(430,300,470);}controls.target.set(0,0,0);controls.update();transition=1;}
-   if(p.flat!==lastFlat){if(p.flat)savedCamera.copy(cam.position);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
+   if(p.reset!==reset){reset=p.reset;cam.zoom=1;cam.updateProjectionMatrix();if(p.flat){cam.position.set(.001,750,0);cam.up.set(0,0,-1);}else{cam.position.set(0,0,760);cam.up.set(0,1,0);azimuth=90;altitude=0;eye.fov=85;eye.updateProjectionMatrix();}controls.target.set(0,0,0);if(!p.flat)controls.update();else cam.lookAt(0,0,0);transition=1;}
+   if(p.flat!==lastFlat){if(p.flat)savedCamera.copy(cam.position);upStart.copy(cam.up);upEnd.set(0,p.flat?0:1,p.flat?-1:0);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
    const moving=transition<1;
    transition=Math.min(1,transition+dt/(p.reduced?.01:1.1));const ease=transition*transition*(3-2*transition);
-   if(moving){cam.position.lerpVectors(cameraStart,cameraEnd,ease);cam.lookAt(0,0,0);}else controls.update();
-   controls.enableRotate=!p.flat&&transition===1;controls.enabled=transition===1;
-   const target=p.flat?1:0;morph=p.reduced?target:THREE.MathUtils.damp(morph,target,6,dt);if(Math.abs(morph-target)<.001)morph=target;
-   const rotation=(180-c.asc)*DEG;world.rotation.y=rotation*morph;
+   if(moving){cam.up.lerpVectors(upStart,upEnd,ease).normalize();cam.position.lerpVectors(cameraStart,cameraEnd,ease);cam.lookAt(0,0,0);}else if(!p.flat&&!ground){cam.up.set(0,1,0);controls.update();}else cam.lookAt(0,0,0);
+   controls.enableRotate=!p.flat&&transition===1;controls.enabled=transition===1&&!p.flat&&!ground;
+   const target=p.flat?1:0;morph=p.reduced||ground?target:THREE.MathUtils.damp(morph,target,6,dt);if(Math.abs(morph-target)<.001)morph=target;
+   const rotation=(180-c.asc)*DEG,m=observerMatrix(c),matrix=new THREE.Matrix4().set(m[0],m[1],m[2],0,m[3],m[4],m[5],0,m[6],m[7],m[8],0,0,0,0,1);
+   const q3=new THREE.Quaternion().setFromRotationMatrix(matrix),q2=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rotation);world.quaternion.copy(q3).slerp(q2,morph);
    sphere.visible=p.grid&&morph<.995;sphere.traverse(o=>{if(o instanceof THREE.Line)(o.material as THREE.LineBasicMaterial).opacity=.23*(1-morph);});
-   earth.visible=morph<.99;earthLabel.visible=morph<.5;earth.rotation.y+=dt*.08;
+   earth.visible=!ground&&morph<.99;earthLabel.visible=!ground&&morph<.5;earth.rotation.y+=dt*.08;
    const k=p.reduced?1:1-Math.exp(-dt*18);
-   nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}if(!n.initialized){n.lon=b.lon;n.lat=b.lat;n.initialized=true;}n.lon=wrap(n.lon+(((b.lon-n.lon+540)%360)-180)*k);n.lat+=(b.lat-n.lat)*k;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99;});
+   nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(ground&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
    const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
    edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(chosen?.65:.065):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a)e.mat.color.set(a.color);e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
    updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=.5*(1-morph);
    updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=.3*(1-morph);
+
+   const planeVector=(a:number[],r=218)=>new THREE.Vector3(a[0]*r,a[2]*r,-a[1]*r);
+   const pathVector=(a:number[],r=225)=>{const lon=wrap(Math.atan2(a[1],a[0])/DEG),lat=Math.atan2(a[2],Math.hypot(a[0],a[1]))/DEG;return v(lon,lat*(1-morph),r-27*morph);};
+   lunarPath.visible=!!p.nodeOrbit&&!!c.moonOrbit;if(c.moonOrbit)updateLine(lunarPath,c.moonOrbit.map((a:number[])=>pathVector(a,225)));
+   primePath.visible=!!p.primeVertical&&morph<.995;updateLine(primePath,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return planeVector(c.east.map((x:number,j:number)=>x*Math.cos(a)+c.zenith[j]*Math.sin(a)),227);}));
+   const compass=[c.east,c.east.map((x:number)=>-x),c.north,c.north.map((x:number)=>-x),c.zenith];
+   directions.forEach((l,i)=>{l.position.copy(planeVector(compass[i],ground?210:290));l.visible=p.horizon&&morph<.995;});
+   trailLines.forEach((l,i)=>{const trail=c.pointTrails?.find((t:any)=>t.id===l.userData.trail);l.visible=!!p.trails&&!!trail;if(!trail)return;const points:THREE.Vector3[]=[];for(let j=1;j<trail.positions.length;j++){const a=trail.positions[j-1],b=trail.positions[j];if(!a||!b||Math.abs(((b[0]-a[0]+540)%360)-180)>60){points.push(new THREE.Vector3(),new THREE.Vector3());continue;}points.push(v(a[0],0,231+i*3-27*morph),v(b[0],0,231+i*3-27*morph));}updateLine(l,points);});
+
    const start=p.houseSystem==='whole'?Math.floor(c.asc/30)*30:c.asc;
    houseLines.forEach((l,i)=>{updateLine(l,[v(start+i*30,0,30),v(start+i*30,0,236)]);l.visible=p.houses;(l.material as THREE.LineBasicMaterial).opacity=.2+.15*morph;houseLabels[i].position.copy(v(start+i*30+15,0,164));houseLabels[i].visible=p.houses;});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||p.houses;mcL.visible=p.horizon||p.houses;
-   const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(cam.quaternion);selection.rotateY(-world.rotation.y);}
+   const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    starMat.opacity=.4*(1-morph*.7);
-   renderer.render(scene,cam);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
+   activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=!ground;renderer.clippingPlanes=ground?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
   renderer.setAnimationLoop(animate);
   const lost=(e:Event)=>{e.preventDefault();renderer.setAnimationLoop(null);setFailure('描画への接続が失われました。ページを再読み込みしてください。');};renderer.domElement.addEventListener('webglcontextlost',lost);
-  return()=>{renderer.setAnimationLoop(null);resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('keydown',key);renderer.domElement.removeEventListener('webglcontextlost',lost);disposable.forEach(d=>d.dispose());renderer.dispose();renderer.domElement.remove();};
+  return()=>{renderer.setAnimationLoop(null);resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointermove',move);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('wheel',wheel);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('keydown',key);renderer.domElement.removeEventListener('webglcontextlost',lost);disposable.forEach(d=>d.dispose());renderer.dispose();renderer.domElement.remove();};
  },[]);
  return <div className="sky-host" ref={mount}>{failure&&<div className="render-error" role="alert"><p>{failure}</p><p>天体位置とアスペクトは右の一覧でも確認できます。</p></div>}</div>;
 }
