@@ -128,4 +128,23 @@ await test('2D defaults to 12 house boundaries and playback moves between calcul
  props={...props,flat:false,playing:false};await render();await advance(240);assert.ok(houses.every(h=>!h.visible),'3D house setting stays separate');
  await act(async()=>root.unmount());
 });
+await test('real star field and live orbit preserve positions and restore the previous camera',async()=>{
+ const root=createRoot(document.getElementById('root')),time=Date.UTC(2026,8,10),chart={...calculate(time),time};
+ let props={chart,flat:true,focus:false,autoRotate:false,aspects:true,grid:true,horizon:true,houses:false,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:false,onFps(){},onFlat(){}};
+ const render=async()=>act(async()=>root.render(createElement(Sky,props)));await render();let tick=1000;
+ const frames=async(n)=>act(async()=>{for(let i=0;i<n;i++)globalThis.__animate(tick+=1000/60);});await frames(2);
+ const before=globalThis.__camera.position.clone();let stars;globalThis.__scene.traverse(o=>{if(o.userData.starField)stars=o;});assert.ok(stars);assert.equal(stars.visible,false);
+ assert.equal(stars.children.reduce((n,o)=>n+o.geometry.getAttribute('position').count,0),22);
+ const buffers=stars.children.map(o=>Array.from(o.geometry.getAttribute('position').array));
+ props={...props,focus:true,autoRotate:true,flat:false};await render();await frames(2);assert.equal(stars.visible,true);
+ const camera=globalThis.__camera,initial=camera.position.clone();await frames(120);assert.ok(camera.position.distanceTo(initial)>10,'slow continuous camera orbit');
+ const visibleLabels=[];globalThis.__scene.traverse(o=>{if(o.isSprite&&o.visible)visibleLabels.push(o);});assert.equal(visibleLabels.length,0,'focus hides text labels');
+ assert.deepEqual(stars.children.map(o=>Array.from(o.geometry.getAttribute('position').array)),buffers,'camera motion does not falsify star positions');
+ props={...props,autoRotate:false};await render();await frames(180);const stopped=camera.position.clone();await frames(60);assert.ok(camera.position.distanceTo(stopped)<.001,'rotation can be stopped');
+ props={...props,autoRotate:true,reduced:true};await render();await frames(60);assert.ok(camera.position.distanceTo(stopped)<.001,'reduced-motion preference suppresses automatic rotation');
+ props={...props,focus:false,autoRotate:false,flat:true};await render();await frames(2);assert.ok(camera.position.distanceTo(before)<.001,'original 2D camera restored');assert.equal(stars.visible,false);
+ props={...props,flat:false,observer:true,showBelowHorizon:false};await render();await frames(2);assert.equal(stars.visible,true,'real stars remain in ground view');assert.equal(globalThis.__renderer.clippingPlanes.length,1,'stars use the same horizon clipping');
+ await act(async()=>root.unmount());
+});
+
 dom.window.close();

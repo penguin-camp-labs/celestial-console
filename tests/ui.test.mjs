@@ -150,6 +150,29 @@ await test('point aspect toggle preserves visible points and filters ordinary an
  await act(async()=>root.unmount());
 });
 
+await test('live focus follows wall time each second and restores the chart without overwriting saved birth data',async()=>{
+ const realNow=Date.now;let now=Date.UTC(2026,8,10,12,34,56);Date.now=()=>now;
+ let requests=0;globalThis.fetch=async()=>{requests++;throw Error('Unexpected request');};
+ localStorage.clear();root=createRoot(document.getElementById('root'));
+ try{
+  await act(async()=>root.render(createElement(Home)));await flush();
+  await act(async()=>registered.get('set_observation_time').execute({datetime:'1990-01-01T00:00:00Z'}));await flush();
+  await click(button('2D ホロスコープ'));await click(document.querySelector('.planet-button'));
+  await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);
+  const saved=localStorage.getItem('celestial.observatory.v1'),original=globalThis.__skyProps.chart.time;
+  await click(button('今の星を眺める'));
+  assert.equal(globalThis.__skyProps.focus,true);assert.equal(globalThis.__skyProps.flat,false);assert.equal(globalThis.__skyProps.playing,false);assert.equal(globalThis.__skyProps.chart.time,now);assert.equal(globalThis.__skyProps.autoRotate,true);
+  assert.ok(document.querySelector('.telemetry').hidden&&document.querySelector('.timeline').hidden);assert.equal(document.activeElement,byLabel('眺めるモードを終了'));
+  now+=1000;await flush(1100);assert.equal(globalThis.__skyProps.chart.time,now,'one second real-time advancement');assert.equal(localStorage.getItem('celestial.observatory.v1'),saved);
+  await click(byLabel('天球の自動回転を止める'));assert.equal(globalThis.__skyProps.autoRotate,false);
+  Object.defineProperty(document,'hidden',{configurable:true,value:true});await act(async()=>document.dispatchEvent(new Event('visibilitychange')));
+  now+=3600000;Object.defineProperty(document,'hidden',{configurable:true,value:false});await act(async()=>document.dispatchEvent(new Event('visibilitychange')));assert.equal(globalThis.__skyProps.chart.time,now,'resume resynchronizes wall time');
+  await click(byLabel('眺めるモードを終了'));assert.equal(globalThis.__skyProps.focus,false);assert.equal(globalThis.__skyProps.flat,true);assert.equal(globalThis.__skyProps.selected,'Sun');assert.equal(globalThis.__skyProps.chart.time,original);assert.equal(document.activeElement,button('今の星を眺める'));
+  await click(button('今の星を眺める'));await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));await flush();assert.equal(globalThis.__skyProps.focus,false);assert.equal(globalThis.__skyProps.chart.time,original);
+  assert.equal(localStorage.getItem('celestial.observatory.v1'),saved);assert.equal(requests,0);
+ }finally{await act(async()=>root.unmount());Date.now=realNow;delete document.hidden;localStorage.clear();}
+});
+
 dom.window.close();
 
 
