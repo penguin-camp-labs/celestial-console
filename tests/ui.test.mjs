@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {build} from 'esbuild';
-import {mkdir,rm} from 'node:fs/promises';
+import {mkdir,rm,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const rootPath=resolve('.');
@@ -61,6 +61,36 @@ await test('corrupt saved data is ignored without breaking the app',async()=>{
  root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
  assert.ok(Number.isFinite(displayed()));assert.ok(document.querySelector('[role="status"]'));
  await act(async()=>root.unmount());localStorage.clear();
+});
+
+await test('extended controls update aspects, individual asteroids and a private birth form',async()=>{
+ const calls=[];const raw=await readFile('public/ephemeris/asteroids.bin');
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});assert.equal(options.referrerPolicy,'no-referrer');assert.ok(!options.body);
+  if(url==='/ephemeris/asteroids.bin')return {ok:true,arrayBuffer:async()=>raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)};
+  if(url==='/data/cities.json')return {ok:true,json:async()=>[{id:'tokyo',name:'Tokyo',ascii:'Tokyo',aliases:['東京'],country:'JP',region:'Tokyo',lat:35.68,lon:139.69,zone:'Asia/Tokyo',population:10000000}]};
+  throw Error('Unexpected URL '+url);
+ };
+ root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ await click(byLabel('アスペクトライン'));assert.equal(globalThis.__skyProps.aspects,false);
+ await click(byLabel('アスペクトライン'));assert.equal(globalThis.__skyProps.aspects,true);
+ await click(byLabel('マイナー表示'));assert.equal(byLabel('マイナー表示').getAttribute('aria-checked'),'true');
+ await click(document.querySelector('.network-button'));
+ await input(byLabel('セミセクスタイルのオーブ'),'1.5');
+ await click(byLabel('セレス / 1'));await flush(80);
+ assert.equal(globalThis.__skyProps.chart.bodies.length,11);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,12);
+ await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,11);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
+ await click(byLabel('複合アスペクト'));await click(byLabel('ヨッド'));assert.equal(byLabel('ヨッド').getAttribute('aria-checked'),'false');
+ await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await click(document.querySelector('.birth-trigger'));await flush(50);
+ await input(byLabel('生年月日'),'2000-02-29');await input(byLabel('出生時刻'),'12:30:00');
+ await input(byLabel('出生都市を検索'),'東京');await click(document.querySelector('.city-results button'));
+ await act(async()=>document.querySelector('.birth-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush(150);
+ assert.equal(displayed(),Date.parse('2000-02-29T03:30:00Z'));
+ assert.equal(globalThis.__skyProps.chart.bodies.length,11);
+ assert.equal(localStorage.length,0,'birth data is not saved by default');
+ assert.deepEqual(calls.map(c=>c.url),['/ephemeris/asteroids.bin','/data/cities.json'],'only fixed same-site assets are requested, without birth parameters');
+ await act(async()=>root.unmount());
 });
 dom.window.close();
 

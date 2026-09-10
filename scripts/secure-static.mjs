@@ -17,5 +17,7 @@ await writeFile(join(dir,'_headers'),'/*\n  Content-Security-Policy: '+csp+'\n  
 const packages=['react','react-dom','react-server-dom-webpack','three','astronomy-engine','@base-ui/react','lucide-react','clsx','tailwind-merge','class-variance-authority','@floating-ui/react','@floating-ui/dom','@floating-ui/core','@floating-ui/utils','@floating-ui/react-dom','tabbable','use-sync-external-store'];
 let notices='CELESTIAL — Third-party notices\n';
 for(const pkg of packages){const path=join('node_modules',pkg);let files;try{files=await readdir(path);}catch{continue;}const license=files.find(f=>/^licen[cs]e(\.|$)/i.test(f));if(license)notices+='\n\n--- '+pkg+' ---\n'+await readFile(join(path,license),'utf8');}
+notices+='\n\n--- GeoNames city data ---\n'+await readFile('public/data/NOTICE.txt','utf8');
+notices+='\n\n--- NASA/JPL Horizons ---\nhttps://ssd.jpl.nasa.gov/horizons/\nApparent geocentric ICRF vectors (LT+S, UT), sampled every 8 days, adapted to Float32 and cubic Hermite interpolation. Retrieval metadata: /ephemeris/manifest.json.\n';
 await writeFile(join(dir,'third-party-notices.txt'),notices);
 console.log('Static index verified. CSP script hashes, privacy headers and license notices generated.');

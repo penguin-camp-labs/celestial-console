@@ -1,0 +1,5 @@
+City data: GeoNames cities15000, downloaded 2026-09-10T12:46:27.962Z
+https://www.geonames.org/
+https://download.geonames.org/export/dump/cities15000.zip
+Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/
+Adapted by selecting city names, Japanese/CJK aliases, coordinates, timezone, region and population; sorted by population. Provided as is.

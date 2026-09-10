@@ -68,4 +68,18 @@ await test('initial 2D view and narrow-screen projection keep the chart in frame
  await act(async()=>root.unmount());viewportWidth=1000;viewportHeight=660;
 });
 
+
+await test('additional bodies and compound lines appear and disappear without recreating the camera',async()=>{
+ const root=createRoot(document.getElementById('root')),chart=calculate(Date.UTC(2026,8,10));let props={chart,flat:false,aspects:true,grid:true,horizon:true,houses:false,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ const render=async()=>act(async()=>root.render(createElement(Sky,props)));
+ await render();let tick=1000;const frames=async()=>act(async()=>{for(let i=0;i<100;i++)globalThis.__animate(tick+=17);});await frames();
+ const camera=globalThis.__camera;
+ const added={id:'Ceres',name:'セレス',symbol:'⚳',color:'#c7dda0',lon:45,lat:15,speed:0,distance:2};
+ props={...props,chart:{...chart,bodies:[...chart.bodies,added],aspects:[],patternEdges:[{a:'Sun',b:'Ceres',color:'#f4d08a',pattern:true}]}};
+ await render();await frames();let extra;const edges=[];globalThis.__scene.traverse(o=>{if(o.userData.id==='Ceres')extra=o;if(o.userData.aspect)edges.push(o);});
+ assert.ok(extra.visible);assert.equal(globalThis.__camera,camera);assert.equal(edges.filter(e=>e.visible).length,1);
+ props={...props,aspects:false};await render();await frames();assert.equal(edges.filter(e=>e.visible).length,0);
+ props={...props,chart,aspects:true};await render();await frames();assert.equal(extra.visible,false);
+ await act(async()=>root.unmount());
+});
 dom.window.close();

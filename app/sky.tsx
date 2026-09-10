@@ -2,7 +2,8 @@
 import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {BODIES,GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
+import {GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
+import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 type Props={chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
@@ -40,12 +41,13 @@ export default function Sky(props:Props){
   GLYPHS.forEach((s:string,i:number)=>{const l=label(s,i%3===0?'#a5ded9':'#8daab7',22);l.position.copy(v(i*30+15,0,282));});
   const earthG=new THREE.SphereGeometry(9,24,16),earthM=new THREE.MeshBasicMaterial({color:'#8fe6e0',wireframe:true,transparent:true,opacity:.75}),earth=new THREE.Mesh(earthG,earthM);world.add(earth);disposable.push(earthG,earthM);
   const earthLabel=label('EARTH','#71989c',9);earthLabel.position.set(0,-23,0);
-  const nodes=BODIES.map((b:any)=>{
+  function makeNode(b:any){
    const geo=new THREE.SphereGeometry(b.id==='Sun'?5.7:b.id==='Moon'?4.8:4,16,12),mat=new THREE.MeshBasicMaterial({color:b.color}),mesh=new THREE.Mesh(geo,mat);mesh.userData.id=b.id;world.add(mesh);disposable.push(geo,mat);
    const l=label(b.symbol,b.color,23);
    const tether=line([v(0),v(0)],b.color,.2);
    return {mesh,label:l,tether,lon:0,lat:0,initialized:false};
-  });
+  }
+  const nodes=live.current.chart.bodies.map(makeNode) as ReturnType<typeof makeNode>[];
   const edges:{line:THREE.Line;mat:THREE.LineBasicMaterial;i:number;j:number}[]=[];
   for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}
   const horizon=line(circle(),'#d9b177',.5);
@@ -61,7 +63,7 @@ export default function Sky(props:Props){
   starGeo.setAttribute('position',new THREE.Float32BufferAttribute(stars,3));const starMat=new THREE.PointsMaterial({color:'#8ca5b8',size:1.2,transparent:true,opacity:.45,sizeAttenuation:false});scene.add(new THREE.Points(starGeo,starMat));disposable.push(starGeo,starMat);
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downX=0,downY=0;
   function down(e:PointerEvent){downX=e.clientX;downY=e.clientY;}
-  function up(e:PointerEvent){if(Math.hypot(e.clientX-downX,e.clientY-downY)>5)return;const rect=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(mouse,cam);const hits=ray.intersectObjects(nodes.map(n=>n.mesh));live.current.onSelect(hits[0]?.object.userData.id??null);}
+  function up(e:PointerEvent){if(Math.hypot(e.clientX-downX,e.clientY-downY)>5)return;const rect=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(mouse,cam);const hits=ray.intersectObjects(nodes.filter(n=>n.mesh.visible).map(n=>n.mesh));live.current.onSelect(hits[0]?.object.userData.id??null);}
   function key(e:KeyboardEvent){if(e.key==='Escape'){live.current.onSelect(null);return;}if(e.key==='+'||e.key==='=')cam.zoom=Math.min(2.1,cam.zoom*1.1);else if(e.key==='-')cam.zoom=Math.max(.65,cam.zoom/1.1);else if(e.key.startsWith('Arrow')&&!live.current.flat){const s=new THREE.Spherical().setFromVector3(cam.position);if(e.key==='ArrowLeft')s.theta-=.1;if(e.key==='ArrowRight')s.theta+=.1;if(e.key==='ArrowUp')s.phi=Math.max(.05,s.phi-.1);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI-.05,s.phi+.1);cam.position.setFromSpherical(s);}else return;e.preventDefault();cam.updateProjectionMatrix();controls.update();}
   renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('keydown',key);
   const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(w<=0||h<=0)return;renderer.setSize(w,h);const span=w<600?365:340,aspect=w/h;cam.left=-span*Math.max(1,aspect);cam.right=-cam.left;cam.top=span*Math.max(1,1/aspect);cam.bottom=-cam.top;cam.updateProjectionMatrix();});resize.observe(host);
@@ -72,6 +74,7 @@ export default function Sky(props:Props){
   function animate(now:number){
    if(document.hidden){last=now;return;}
    const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=p.chart;if(!c)return;
+   for(const b of c.bodies)if(!nodes.some(n=>n.mesh.userData.id===b.id)){const j=nodes.length;nodes.push(makeNode(b));for(let i=0;i<j;i++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}}
    if(p.reset!==reset){reset=p.reset;cam.zoom=1;cam.updateProjectionMatrix();if(p.flat){cam.position.set(.001,750,0);}else{cam.position.set(430,300,470);}controls.target.set(0,0,0);controls.update();transition=1;}
    if(p.flat!==lastFlat){if(p.flat)savedCamera.copy(cam.position);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
    const moving=transition<1;
@@ -83,16 +86,16 @@ export default function Sky(props:Props){
    sphere.visible=p.grid&&morph<.995;sphere.traverse(o=>{if(o instanceof THREE.Line)(o.material as THREE.LineBasicMaterial).opacity=.23*(1-morph);});
    earth.visible=morph<.99;earthLabel.visible=morph<.5;earth.rotation.y+=dt*.08;
    const k=p.reduced?1:1-Math.exp(-dt*18);
-   nodes.forEach((n,i)=>{const b=c.bodies[i];if(!n.initialized){n.lon=b.lon;n.lat=b.lat;n.initialized=true;}n.lon=wrap(n.lon+(((b.lon-n.lon+540)%360)-180)*k);n.lat+=(b.lat-n.lat)*k;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99;});
-   const active=new Map(c.aspects.map((a:any)=>[a.a+':'+a.b,a]));
-   edges.forEach(e=>{const a:any=active.get(BODIES[e.i].id+':'+BODIES[e.j].id);const chosen=!p.selected||[BODIES[e.i].id,BODIES[e.j].id].includes(p.selected);const opacity=p.aspects&&a?(chosen?.65:.065):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a)e.mat.color.set(a.color);e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
+   nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}if(!n.initialized){n.lon=b.lon;n.lat=b.lat;n.initialized=true;}n.lon=wrap(n.lon+(((b.lon-n.lon+540)%360)-180)*k);n.lat+=(b.lat-n.lat)*k;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99;});
+   const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
+   edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(chosen?.65:.065):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a)e.mat.color.set(a.color);e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
    updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=.5*(1-morph);
    updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=.3*(1-morph);
    const start=p.houseSystem==='whole'?Math.floor(c.asc/30)*30:c.asc;
    houseLines.forEach((l,i)=>{updateLine(l,[v(start+i*30,0,30),v(start+i*30,0,236)]);l.visible=p.houses;(l.material as THREE.LineBasicMaterial).opacity=.2+.15*morph;houseLabels[i].position.copy(v(start+i*30+15,0,164));houseLabels[i].visible=p.houses;});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||p.houses;mcL.visible=p.horizon||p.houses;
-   const selected=nodes.find((_,i)=>BODIES[i].id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(cam.quaternion);selection.rotateY(-world.rotation.y);}
+   const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(cam.quaternion);selection.rotateY(-world.rotation.y);}
    starMat.opacity=.4*(1-morph*.7);
    renderer.render(scene,cam);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
