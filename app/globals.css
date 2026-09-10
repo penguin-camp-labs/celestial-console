@@ -81,3 +81,6 @@ html[data-scheme=light] .live-actions button{background:#f8fbfde6;color:#234957;
 html[data-scheme=light] [data-slot=switch][data-checked]{background:#096b61!important;border-color:#096b61}
 html[data-scheme=light] [data-slot=switch][data-unchecked]{background:#b2c4cf!important;border-color:#8ca7b6}
 html[data-scheme=light] [data-slot=switch-thumb]{background:#fff}
+
+html[data-scheme=light] .scene-legend i{height:3px;width:18px}
+html[data-scheme=light] .orb-meter i{opacity:1}

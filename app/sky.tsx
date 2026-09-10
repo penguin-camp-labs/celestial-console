@@ -8,7 +8,7 @@ import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
-import {themeAppearance,inkColor} from '@/lib/theme.mjs';
+import {themeAppearance,inkColor,aspectInkColor} from '@/lib/theme.mjs';
 type Props={theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
@@ -113,7 +113,7 @@ export default function Sky(props:Props){
   const playback=new PlaybackInterpolator();let wasPlaying=!!live.current.playing;
   function animate(now:number){
    if(document.hidden){last=now;return;}
-   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=playback.sample(p.chart,now,!!p.playing&&p.smoothPlayback!==false&&!p.reduced);if(!c)return;const stopped=wasPlaying&&!p.playing;wasPlaying=!!p.playing;const ground=!!p.observer&&!p.flat,hideBelow=ground&&p.showBelowHorizon===false;world.traverse(o=>{if(o.userData.hiddenByGround){o.visible=true;o.userData.hiddenByGround=false;}});
+   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=playback.sample(p.chart,now,!!p.playing&&p.smoothPlayback!==false&&!p.reduced);if(!c)return;const stopped=wasPlaying&&!p.playing;wasPlaying=!!p.playing;const theme=p.theme??'dark',appearance=themeAppearance(theme,c),bright=appearance.light;const ground=!!p.observer&&!p.flat,hideBelow=ground&&p.showBelowHorizon===false;world.traverse(o=>{if(o.userData.hiddenByGround){o.visible=true;o.userData.hiddenByGround=false;}});
    if(!!p.focus!==lastFocus){
     if(p.focus)beforeFocus={position:cam.position.clone(),up:cam.up.clone(),target:controls.target.clone(),zoom:cam.zoom,saved:savedCamera.clone()};
     controls.autoRotate=false;controls.enableDamping=false;controls.update();
@@ -139,7 +139,7 @@ export default function Sky(props:Props){
    const k=p.reduced?1:1-Math.exp(-dt*18);
    nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=p.playing||stopped||b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(hideBelow&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
    const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
-   edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(p.focus?.26:(chosen?.65:.065)):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a){e.mat.color.set(a.color);e.mat.userData.themeColor=a.color;}e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
+   edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(p.focus?(bright?.42:.26):(chosen?(bright?.92:.65):(bright?.10:.065))):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a){e.mat.color.set(a.color);e.mat.userData.themeColor=a.color;}e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
    updateLine(horizon,hor);horizon.visible=p.horizon&&morph<.99;(horizon.material as THREE.LineBasicMaterial).opacity=.5*(1-morph);
    updateLine(equator,Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3(218*Math.cos(a),-218*Math.sin(a)*Math.sin(c.eps*DEG),-218*Math.sin(a)*Math.cos(c.eps*DEG));}));equator.visible=p.grid&&morph<.99;(equator.material as THREE.LineBasicMaterial).opacity=.3*(1-morph);
@@ -161,13 +161,12 @@ export default function Sky(props:Props){
    if(minute!==starMinute){starMinute=minute;const positions=starPositions(minute*60000);starLayers.forEach(({points,entries})=>{const attr=points.geometry.getAttribute('position') as THREE.BufferAttribute;entries.forEach((s,i)=>{const v=positions[s.index];attr.setXYZ(i,v[0]*325,v[1]*325,v[2]*325);});attr.needsUpdate=true;points.geometry.computeBoundingSphere();});}
    if(p.focus)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible){o.visible=false;o.userData.hiddenByGround=true;}});
    activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));if(hideBelow)world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=morph<.995;
-   const theme=p.theme??'dark',appearance=themeAppearance(theme,c),bright=appearance.light;
    const themeKey=theme+':'+bright;
    if(lastTheme!==themeKey){lastTheme=themeKey;if(host?.parentElement)host.parentElement.dataset.skyScheme=bright?'light':'dark';}
    skyDome.visible=theme==='sky'&&morph<.995;skyDome.position.copy(activeCamera.position);
    skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;
    // Update colour, never recreate geometry/camera when switching themes.
-   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){const belowDarkSky=theme==='sky'&&!p.flat&&o.position.clone().applyQuaternion(world.quaternion).y < -35;mat.color.set(inkColor(mat.userData.themeColor,bright&&!belowDarkSky));}});
+   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){const belowDarkSky=theme==='sky'&&!p.flat&&o.position.clone().applyQuaternion(world.quaternion).y < -35;mat.color.set(o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright&&!belowDarkSky):inkColor(mat.userData.themeColor,bright&&!belowDarkSky));}});
    starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
   renderer.setAnimationLoop(animate);
