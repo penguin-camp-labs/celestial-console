@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {build} from 'esbuild';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {sensitivePoints,pointTrails} from '../lib/observer.mjs';
@@ -163,4 +163,19 @@ await test('themes preserve camera and chart geometry while solar daylight contr
  await act(async()=>root.unmount());
 });
 
+await test('house changes render reference cusps without resetting the camera',async()=>{
+ const fixture=JSON.parse(await readFile('tests/house-reference.json','utf8')).samples;
+ const root=createRoot(document.getElementById('root')),t=Date.parse('2026-09-10T00:00:00Z');
+ let props={chart:calculate(t,35.6812,139.7671),houseSystem:'equal',flat:true,aspects:true,grid:true,horizon:true,houses:true,selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ let tick=1000;const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(tick+=20));};
+ await render();const camera=globalThis.__camera,lines=[];globalThis.__scene.traverse(o=>{if(o.userData.house)lines.push(o);});
+ for(const system of ['placidus','campanus','whole','equal']){
+  props={...props,houseSystem:system};await render();assert.equal(globalThis.__camera,camera);
+  const expected=fixture.find(s=>s.iso==='2026-09-10T00:00:00Z'&&s.latitude===35.6812&&s.system===system);
+  lines.forEach((line,i)=>{assert.ok(line.visible);const point=new Vector3().fromBufferAttribute(line.geometry.getAttribute('position'),1);const lon=((Math.atan2(-point.z,point.x)*180/Math.PI)%360+360)%360;assert.ok(Math.abs(((lon-expected.cusps[i]+540)%360)-180)<.002);});
+ }
+ props={...props,houseSystem:'placidus',chart:calculate(t,78,15)};await render();assert.ok(lines.every(l=>!l.visible));
+ props={...props,houseSystem:'campanus',flat:false};await render();assert.ok(lines.every(l=>l.visible));
+ await act(async()=>root.unmount());
+});
 dom.window.close();

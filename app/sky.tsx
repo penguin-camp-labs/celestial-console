@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
+import {houseCusps} from '@/lib/houses.mjs';
 import {PlaybackInterpolator} from '@/lib/playback.mjs';
 import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
@@ -110,6 +111,7 @@ export default function Sky(props:Props){
   let lastFocus=false,rotationPauseUntil=0;let beforeFocus:{position:THREE.Vector3;up:THREE.Vector3;target:THREE.Vector3;zoom:number;saved:THREE.Vector3}|null=null;
 
   function updateLine(l:THREE.Line,points:THREE.Vector3[]){const a=l.geometry.getAttribute('position') as THREE.BufferAttribute;points.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;l.geometry.computeBoundingSphere();}
+  let houseFrame:any=null,houseMode='',houseResult=houseCusps(live.current.chart,live.current.houseSystem);
   const playback=new PlaybackInterpolator();let wasPlaying=!!live.current.playing;
   function animate(now:number){
    if(document.hidden){last=now;return;}
@@ -153,8 +155,8 @@ export default function Sky(props:Props){
    trailLines.forEach((l,i)=>{const trail=c.pointTrails?.find((t:any)=>t.id===l.userData.trail);l.visible=!!p.trails&&!!trail;if(!trail)return;const points:THREE.Vector3[]=[];for(let j=1;j<trail.positions.length;j++){const a=trail.positions[j-1],b=trail.positions[j];if(!a||!b||Math.abs(((b[0]-a[0]+540)%360)-180)>60){points.push(new THREE.Vector3(),new THREE.Vector3());continue;}points.push(v(a[0],0,231+i*3-27*morph),v(b[0],0,231+i*3-27*morph));}updateLine(l,points);});
 
    const showHouses=p.flat?(p.houses2d??true):p.houses;
-   const start=p.houseSystem==='whole'?Math.floor(c.asc/30)*30:c.asc;
-   houseLines.forEach((l,i)=>{updateLine(l,[v(start+i*30,0,30),v(start+i*30,0,236)]);l.visible=showHouses;(l.material as THREE.LineBasicMaterial).opacity=.25+.4*morph;houseLabels[i].position.copy(v(start+i*30+15,0,164));houseLabels[i].visible=showHouses;});
+   if(showHouses&&(c!==houseFrame||p.houseSystem!==houseMode)){houseFrame=c;houseMode=p.houseSystem;houseResult=houseCusps(c,p.houseSystem);}
+   houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses;mcL.visible=p.horizon||showHouses;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
