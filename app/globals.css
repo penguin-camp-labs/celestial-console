@@ -30,3 +30,5 @@ html{scroll-behavior:smooth}body{font-feature-settings:"tnum";overflow-x:hidden}
 @media(max-width:700px){.observer-tools{top:145px;left:16px;max-width:calc(100% - 32px)}.view-toggle{top:88px!important;left:16px!important;right:auto!important}.scene-heading{top:20px!important;left:16px!important}.location-button{justify-content:center}}
 
 .scene-legend{flex-wrap:wrap;max-width:calc(100% - 48px);gap:8px 12px}@media(min-width:521px) and (max-width:800px){.telemetry{display:block}.telemetry .aspect-heading{margin-top:24px}.telemetry .aspect-list{max-height:320px;overflow:auto}}
+
+.observer-tools .toggle-row{background:#112731;border:1px solid #3a5861;border-radius:5px;color:#c5e1df;padding:5px 10px;min-height:34px;gap:12px;font-size:11px}.observer-tools .toggle-row button{padding:0}

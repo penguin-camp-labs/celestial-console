@@ -34,7 +34,7 @@ await test('interactive local app: time, playback, 2D/3D, aspects and storage',a
  root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
  assert.ok(Math.abs(displayed()-Date.now())<3000);
  assert.equal(localStorage.length,0,'nothing saved by default');
- await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.flat,true);
+ await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.flat,true);assert.equal(globalThis.__skyProps.houses2d,true);await click(byLabel('ハウス線'));assert.equal(globalThis.__skyProps.houses2d,false);await click(byLabel('ハウス線'));assert.equal(globalThis.__skyProps.houses2d,true);
  await click(button('3D 天球'));assert.equal(globalThis.__skyProps.flat,false);
  await click(document.querySelector('.planet-button'));assert.equal(globalThis.__skyProps.selected,'Sun');
  assert.ok(document.querySelector('.body-detail').textContent.includes('黄緯'));

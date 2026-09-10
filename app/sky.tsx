@@ -3,10 +3,11 @@ import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
+import {PlaybackInterpolator} from '@/lib/playback.mjs';
 import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
-type Props={observer?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+type Props={playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -59,8 +60,8 @@ export default function Sky(props:Props){
   const trailLines=['NorthNode','SouthNode','Vertex'].map((id,i)=>{const geo=new THREE.BufferGeometry().setFromPoints(Array.from({length:i===2?192:144},()=>new THREE.Vector3())),mat=new THREE.LineBasicMaterial({color:['#9ae0ce','#c7b5ed','#f4c184'][i],transparent:true,opacity:.55,depthWrite:false}),l=new THREE.LineSegments(geo,mat);l.userData.trail=id;world.add(l);disposable.push(geo,mat);return l;});
   const directions=[label('東 E','#c0d4d8',14),label('西 W','#c0d4d8',14),label('北 N','#c0d4d8',14),label('南 S','#c0d4d8',14),label('天頂','#93b8c0',12)];
   const equator=line(circle(),'#90a6d8',.3);
-  const houseLines=Array.from({length:12},()=>line([v(0,0,18),v(0,0,236)],'#8195a3',.35));
-  const houseLabels=Array.from({length:12},(_,i)=>label(String(i+1),'#7c96a6',11));
+  const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
+  const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',12);l.userData.houseNumber=i+1;return l;});
   const ascL=label('ASC','#f2c386',12),mcL=label('MC','#b6bceb',12);
   const selectionGeo=new THREE.RingGeometry(8,9,32),selectionMat=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false});
   const selection=new THREE.Mesh(selectionGeo,selectionMat);world.add(selection);disposable.push(selectionGeo,selectionMat);
@@ -82,9 +83,10 @@ export default function Sky(props:Props){
   let upStart=cam.up.clone(),upEnd=cam.up.clone();
 
   function updateLine(l:THREE.Line,points:THREE.Vector3[]){const a=l.geometry.getAttribute('position') as THREE.BufferAttribute;points.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;l.geometry.computeBoundingSphere();}
+  const playback=new PlaybackInterpolator();let wasPlaying=!!live.current.playing;
   function animate(now:number){
    if(document.hidden){last=now;return;}
-   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=p.chart;if(!c)return;const ground=!!p.observer&&!p.flat;world.traverse(o=>{if(o.userData.hiddenByGround){o.visible=true;o.userData.hiddenByGround=false;}});
+   const dt=Math.min(.06,last?(now-last)/1000:1/60);last=now;const p=live.current,c=playback.sample(p.chart,now,!!p.playing&&p.smoothPlayback!==false&&!p.reduced);if(!c)return;const stopped=wasPlaying&&!p.playing;wasPlaying=!!p.playing;const ground=!!p.observer&&!p.flat;world.traverse(o=>{if(o.userData.hiddenByGround){o.visible=true;o.userData.hiddenByGround=false;}});
    if((p.headings??0)!==lastHeading){lastHeading=p.headings??0;azimuth=p.heading??90;altitude=0;}
    if((p.level??0)!==lastLevel){lastLevel=p.level??0;controls.enableDamping=false;controls.update();controls.enableDamping=true;lastFlat=p.flat;morph=0;savedCamera.set(0,0,760);cam.position.set(0,0,760);cam.up.set(0,1,0);controls.target.set(0,0,0);transition=1;azimuth=p.heading??90;altitude=0;controls.update();}
    for(const b of c.bodies)if(!nodes.some(n=>n.mesh.userData.id===b.id)){const j=nodes.length;nodes.push(makeNode(b));for(let i=0;i<j;i++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}}
@@ -100,7 +102,7 @@ export default function Sky(props:Props){
    sphere.visible=p.grid&&morph<.995;sphere.traverse(o=>{if(o instanceof THREE.Line)(o.material as THREE.LineBasicMaterial).opacity=.23*(1-morph);});
    earth.visible=!ground&&morph<.99;earthLabel.visible=!ground&&morph<.5;earth.rotation.y+=dt*.08;
    const k=p.reduced?1:1-Math.exp(-dt*18);
-   nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(ground&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
+   nodes.forEach(n=>{const b=c.bodies.find((b:any)=>b.id===n.mesh.userData.id);n.mesh.visible=!!b;n.label.visible=!!b;if(!b){n.tether.visible=false;n.initialized=false;return;}const direction=ground?topocentricDirection(b,c.observerVector):b;if(!n.initialized){n.lon=direction.lon;n.lat=direction.lat;n.initialized=true;}const smooth=p.playing||stopped||b.kind==='point'?1:k;n.lon=wrap(n.lon+(((direction.lon-n.lon+540)%360)-180)*smooth);n.lat+=(direction.lat-n.lat)*smooth;n.mesh.position.set(...morphPoint(n.lon,n.lat,morph));n.label.position.copy(v(n.lon,n.lat*(1-morph),239-morph*23));if(!ground)n.label.position.y+=9*(1-morph);n.label.material.opacity=p.selected&&p.selected!==b.id?.4:1;(n.mesh.material as THREE.MeshBasicMaterial).color.set(b.color);n.mesh.scale.setScalar(p.selected===b.id?1.5:1);updateLine(n.tether,[v(n.lon,0,218),n.mesh.position]);n.tether.visible=p.grid&&morph<.99&&!ground;if(ground&&n.mesh.position.clone().applyQuaternion(world.quaternion).y<-.01){n.mesh.visible=false;n.label.visible=false;}});
    const active=new Map([...c.aspects,...(c.patternEdges??[])].map((a:any)=>[edgeKey(a.a,a.b),a]));
    edges.forEach(e=>{const a:any=active.get(edgeKey(nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id));const chosen=!p.selected||[nodes[e.i].mesh.userData.id,nodes[e.j].mesh.userData.id].includes(p.selected);const opacity=p.aspects&&a&&nodes[e.i].mesh.visible&&nodes[e.j].mesh.visible?(chosen?.65:.065):0;e.mat.opacity=THREE.MathUtils.damp(e.mat.opacity,opacity,10,dt);if(a)e.mat.color.set(a.color);e.line.visible=e.mat.opacity>.005;updateLine(e.line,[nodes[e.i].mesh.position,nodes[e.j].mesh.position]);});
    const hor=Array.from({length:181},(_,i)=>{const a=i*2*DEG;return new THREE.Vector3((c.east[0]*Math.cos(a)+c.north[0]*Math.sin(a))*218,(c.east[2]*Math.cos(a)+c.north[2]*Math.sin(a))*218,-(c.east[1]*Math.cos(a)+c.north[1]*Math.sin(a))*218);});
@@ -115,9 +117,10 @@ export default function Sky(props:Props){
    directions.forEach((l,i)=>{l.position.copy(planeVector(compass[i],ground?210:290));l.visible=p.horizon&&morph<.995;});
    trailLines.forEach((l,i)=>{const trail=c.pointTrails?.find((t:any)=>t.id===l.userData.trail);l.visible=!!p.trails&&!!trail;if(!trail)return;const points:THREE.Vector3[]=[];for(let j=1;j<trail.positions.length;j++){const a=trail.positions[j-1],b=trail.positions[j];if(!a||!b||Math.abs(((b[0]-a[0]+540)%360)-180)>60){points.push(new THREE.Vector3(),new THREE.Vector3());continue;}points.push(v(a[0],0,231+i*3-27*morph),v(b[0],0,231+i*3-27*morph));}updateLine(l,points);});
 
+   const showHouses=p.flat?(p.houses2d??true):p.houses;
    const start=p.houseSystem==='whole'?Math.floor(c.asc/30)*30:c.asc;
-   houseLines.forEach((l,i)=>{updateLine(l,[v(start+i*30,0,30),v(start+i*30,0,236)]);l.visible=p.houses;(l.material as THREE.LineBasicMaterial).opacity=.2+.15*morph;houseLabels[i].position.copy(v(start+i*30+15,0,164));houseLabels[i].visible=p.houses;});
-   ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||p.houses;mcL.visible=p.horizon||p.houses;
+   houseLines.forEach((l,i)=>{updateLine(l,[v(start+i*30,0,30),v(start+i*30,0,236)]);l.visible=showHouses;(l.material as THREE.LineBasicMaterial).opacity=.25+.4*morph;houseLabels[i].position.copy(v(start+i*30+15,0,164));houseLabels[i].visible=showHouses;});
+   ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses;mcL.visible=p.horizon||showHouses;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    starMat.opacity=.4*(1-morph*.7);
    activeCamera=ground?eye:cam;if(ground){const a=azimuth*DEG,h=altitude*DEG;eye.lookAt(Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h));world.traverse(o=>{if(o instanceof THREE.Sprite&&o.visible&&o.position.clone().applyQuaternion(world.quaternion).y<-.01){o.visible=false;o.userData.hiddenByGround=true;}});}starField.visible=!ground;renderer.clippingPlanes=ground?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}

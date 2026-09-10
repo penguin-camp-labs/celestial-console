@@ -104,4 +104,20 @@ await test('observer frame projects the horizon horizontally and supports an act
  globalThis.__camera.position.set(300,250,500);await advance();props={...props,flat:true};await render();await advance();props={...props,flat:false,level:2};await render();await advance();checkHorizon();
  await act(async()=>root.unmount());
 });
+
+await test('2D defaults to 12 house boundaries and playback moves between calculation ticks',async()=>{
+ const root=createRoot(document.getElementById('root')),time=Date.UTC(2026,8,10),make=t=>({...calculate(t,35.68,139.7),time:t,latitude:35.68,longitude:139.7});
+ const a=make(time),b=make(time+8640000);let props={chart:a,playing:true,smoothPlayback:true,flat:true,aspects:true,grid:true,horizon:true,houses:false,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:false,onFps(){},onFlat(){}};
+ const render=async()=>act(async()=>root.render(createElement(Sky,props))),advance=async t=>act(async()=>globalThis.__animate(t));
+ await render();await advance(0);
+ const houses=[],numbers=[];let moon;globalThis.__scene.traverse(o=>{if(o.userData.house)houses.push(o);if(o.userData.houseNumber)numbers.push(o);if(o.userData.id==='Moon')moon=o;});
+ assert.equal(houses.length,12);assert.equal(numbers.length,12);assert.ok(houses.every(h=>h.visible));assert.ok(numbers.every(n=>n.visible));
+ const first=new Vector3().fromBufferAttribute(houses[0].geometry.getAttribute('position'),1).applyMatrix4(houses[0].matrixWorld);assert.ok(first.x<0&&Math.abs(first.z)<1e-5,'equal house 1 starts at ASC on the left');
+ props={...props,chart:b};await render();await advance(100);
+ const positions=[];for(const t of [100,125,150,175,200]){await advance(t);positions.push(moon.position.clone());}
+ const steps=positions.slice(1).map((p,i)=>p.distanceTo(positions[i]));assert.ok(steps.every(d=>d>.01),'body moves at every render step between chart updates');assert.ok(Math.max(...steps)/Math.min(...steps)<1.02,'linear interpolation removes stop/start pulses');
+ props={...props,houses2d:false};await render();await advance(220);assert.ok(houses.every(h=>!h.visible)&&numbers.every(n=>!n.visible));
+ props={...props,flat:false,playing:false};await render();await advance(240);assert.ok(houses.every(h=>!h.visible),'3D house setting stays separate');
+ await act(async()=>root.unmount());
+});
 dom.window.close();
