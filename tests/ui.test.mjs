@@ -120,6 +120,30 @@ await test('ground controls, point visibility and opt-in GPS keep location priva
  await click(button('現在地を取得（GPS）'));await act(async()=>pending.fail({code:3}));await flush();assert.match(document.querySelector('.notice').textContent,/タイムアウト/);
  await act(async()=>root.unmount());delete navigator.geolocation;
 });
+await test('point aspect toggle preserves visible points and filters ordinary and compound networks',async()=>{
+ localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ await act(async()=>registered.get('set_observation_time').execute({datetime:'2026-01-01T00:00:00Z'}));await flush();
+ await click(byLabel('マイナー表示'));await click(byLabel('複合表示'));
+ const original=globalThis.__skyProps.chart;
+ const pointIds=new Set(original.bodies.filter(b=>b.kind==='point').map(b=>b.id));
+ const involvesPoint=e=>pointIds.has(e.a)||pointIds.has(e.b);
+ assert.equal(pointIds.size,3);assert.ok(original.aspects.some(involvesPoint));assert.ok(original.patternEdges.some(involvesPoint));
+ assert.ok(!original.aspects.some(e=>[e.a,e.b].includes('NorthNode')&&[e.a,e.b].includes('SouthNode')));
+ await click(byLabel('感受点をアスペクトに含める'));
+ assert.equal(byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),'false');
+ const filtered=globalThis.__skyProps.chart;
+ assert.deepEqual(filtered.bodies,original.bodies,'all markers and coordinates remain');
+ assert.deepEqual(filtered.aspects,original.aspects.filter(e=>!involvesPoint(e)),'planet aspects unchanged');
+ assert.ok(!filtered.patternEdges.some(involvesPoint),'compound network also excludes points');
+ await click(document.querySelector('.network-button'));
+ const dialog=document.querySelector('[role="dialog"]');
+ const toggle=dialog.querySelector('[aria-label="感受点をアスペクトに含める"]');assert.equal(toggle.getAttribute('aria-checked'),'false');
+ await click(toggle);assert.deepEqual(globalThis.__skyProps.chart.aspects,original.aspects);assert.deepEqual(globalThis.__skyProps.chart.patternEdges,original.patternEdges);
+ await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ assert.equal(byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),'true','both controls share state');
+ await act(async()=>root.unmount());
+});
+
 dom.window.close();
 
 

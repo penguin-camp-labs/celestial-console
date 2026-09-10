@@ -40,3 +40,15 @@ test('birth time handles summer time, repeated/nonexistent times, fractional off
  assert.throws(()=>resolveZonedTime('2023-02-29T00:00:00','Asia/Tokyo'));
  assert.equal(offsetLabel(345),'UTC+05:45');assert.equal(offsetLabel(9*60+18+59/60),'UTC+09:18:59');
 });
+
+test('lunar node axis is excluded from ordinary and compound aspects only for that pair',()=>{
+ const settings=defaultAspectSettings();
+ const nodes=[{id:'NorthNode',lon:0,lat:0,kind:'point'},{id:'SouthNode',lon:180,lat:0,kind:'point'}];
+ for(const pair of [nodes,[...nodes].reverse()]){
+  assert.deepEqual(aspectEdges(pair,settings,{major:true,minor:true}),[]);
+  assert.deepEqual(findPatterns([...pair,{id:'Moon',lon:90,lat:0}],settings,['t-square']),[]);
+ }
+ const bodies=[...nodes,{id:'Sun',lon:180,lat:0},{id:'Moon',lon:90,lat:0}];
+ assert.ok(aspectEdges(bodies,settings).some(e=>e.a==='NorthNode'&&e.b==='Sun'&&e.angle===180),'other oppositions remain');
+ assert.ok(findPatterns(bodies,settings,['t-square']).some(p=>p.bodies.includes('NorthNode')&&p.bodies.includes('Sun')),'valid point patterns remain');
+});
