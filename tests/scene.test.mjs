@@ -154,7 +154,7 @@ await test('themes preserve camera and chart geometry while solar daylight contr
  let tick=1000;const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(tick+=20));};
  await render();const camera=globalThis.__camera,position=camera.position.clone();let stars,dome,sun;globalThis.__scene.traverse(o=>{if(o.userData.starField)stars=o;if(o.userData.skyDome)dome=o;if(o.userData.id==='Sun')sun=o;});
  const original=sun.position.clone();assert.equal(dome.visible,false);assert.equal(stars.children[0].material.opacity,.255);
- props={...props,theme:'light'};await render();assert.equal(globalThis.__camera,camera);assert.ok(camera.position.distanceTo(position)<.0001);assert.ok(sun.position.distanceTo(original)<.0001);assert.equal(dome.visible,false);assert.notEqual(sun.material.color.getHexString(),day.bodies[0].color.slice(1));
+ props={...props,theme:'light'};await render();assert.equal(globalThis.__camera,camera);assert.ok(camera.position.distanceTo(position)<.0001);assert.ok(sun.position.distanceTo(original)<.0001);assert.equal(dome.visible,false);assert.equal(sun.material.isMeshPhongMaterial,true);assert.ok(sun.material.shininess>0);assert.equal(sun.material.color.getHexString(),day.bodies[0].color.slice(1));
  props={...props,theme:'sky'};await render();assert.equal(dome.visible,true);assert.equal(stars.children[0].material.opacity,0);assert.ok(sun.visible,'markers remain available to read the horoscope');
  const night={...calculate(Date.parse('2026-03-20T00:00:00Z'),0,0),time:Date.parse('2026-03-20T00:00:00Z')};
  props={...props,chart:night};await render();assert.equal(stars.children[0].material.opacity,.255);
