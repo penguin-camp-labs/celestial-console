@@ -186,4 +186,20 @@ await test('sphere house divisions follow the selected system and disappear in 2
  for(const houseSystem of ['koch','regiomontanus','porphyry']){props={...props,houseSystem};await render();assert.equal(globalThis.__camera,camera);assert.ok(lines.every(l=>l.visible));assert.ok(lines.every(l=>Array.from(l.geometry.attributes.position.array).every(Number.isFinite)));assert.equal(lines[1].geometry.attributes.color.getW(0),1);assert.equal(polar.filter(l=>l.visible).length,0);}
  props={...props,gridMode:'off'};await render();assert.ok(lines.every(l=>!l.visible));props={...props,gridMode:'houses',flat:true};await render();assert.ok(lines.every(l=>!l.visible));await act(async()=>root.unmount());
 });
+
+await test('zoomed 3D fits the full 2D chart and restores the 3D zoom on return',async()=>{
+ for(const [width,height] of [[1000,660],[320,500]])for(const reduced of [false,true]){
+  viewportWidth=width;viewportHeight=height;const root=createRoot(document.getElementById('root'));
+  let props={chart:calculate(Date.UTC(2026,8,10)),flat:false,aspects:true,grid:true,horizon:true,houses:true,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced,onFps(){},onFlat(){}};
+  let tick=1000;const render=async()=>act(async()=>root.render(createElement(Sky,props))),frames=async(n)=>act(async()=>{for(let i=0;i<n;i++)globalThis.__animate(tick+=17);});
+  await render();await frames(90);const camera=globalThis.__camera;
+  await act(async()=>{for(let i=0;i<15;i++)globalThis.__renderer.domElement.dispatchEvent(new KeyboardEvent('keydown',{key:'+',bubbles:true}));});await frames(2);assert.equal(camera.zoom,2.1);
+  props={...props,flat:true};await render();await frames(140);assert.equal(camera.zoom,1);
+  for(let angle=0;angle<360;angle+=5){const a=angle*Math.PI/180,p=new Vector3(310*Math.cos(a),0,310*Math.sin(a)).project(camera);assert.ok(Math.abs(p.x)<1&&Math.abs(p.y)<1,'outer labels fit the viewport');}
+  props={...props,flat:false};await render();await frames(140);assert.equal(camera.zoom,2.1);
+  props={...props,flat:true};await render();await frames(140);assert.equal(camera.zoom,1);await act(async()=>root.unmount());
+ }
+ viewportWidth=1000;viewportHeight=660;
+});
+
 dom.window.close();

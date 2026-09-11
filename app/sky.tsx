@@ -124,7 +124,7 @@ export default function Sky(props:Props){
   renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointercancel',cancel);renderer.domElement.addEventListener('wheel',wheel,{passive:false});renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('keydown',key);
   const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(w<=0||h<=0)return;renderer.setSize(w,h);eye.aspect=w/h;eye.updateProjectionMatrix();const span=w<600?365:340,aspect=w/h;cam.left=-span*Math.max(1,aspect);cam.right=-cam.left;cam.top=span*Math.max(1,1/aspect);cam.bottom=-cam.top;cam.updateProjectionMatrix();});resize.observe(host);
   let morph=live.current.flat?1:0,last=0,fpsTime=0,frames=0,lastFlat=live.current.flat,reset=live.current.reset;
-  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=new THREE.Vector3(0,0,760),transition=1;
+  let cameraStart=cam.position.clone(),cameraEnd=cam.position.clone(),savedCamera=new THREE.Vector3(0,0,760),savedZoom=1,transition=1;
   let upStart=cam.up.clone(),upEnd=cam.up.clone();
   let lastFocus=false,rotationPauseUntil=0;let beforeFocus:{position:THREE.Vector3;up:THREE.Vector3;target:THREE.Vector3;zoom:number;saved:THREE.Vector3}|null=null;
 
@@ -146,7 +146,7 @@ export default function Sky(props:Props){
    if((p.level??0)!==lastLevel){lastLevel=p.level??0;controls.enableDamping=false;controls.update();controls.enableDamping=true;lastFlat=p.flat;morph=0;savedCamera.set(0,0,760);cam.position.set(0,0,760);cam.up.set(0,1,0);controls.target.set(0,0,0);transition=1;azimuth=p.heading??90;altitude=0;controls.update();}
    for(const b of c.bodies)if(!nodes.some(n=>n.mesh.userData.id===b.id)){const j=nodes.length;nodes.push(makeNode(b));for(let i=0;i<j;i++){const l=line([v(0),v(0)],'#78ddd1',0);l.userData.aspect=true;edges.push({line:l,mat:l.material as THREE.LineBasicMaterial,i,j});}}
    if(p.reset!==reset){reset=p.reset;cam.zoom=1;cam.updateProjectionMatrix();if(p.flat){cam.position.set(.001,750,0);cam.up.set(0,0,-1);}else{cam.position.set(0,0,760);cam.up.set(0,1,0);azimuth=90;altitude=0;eye.fov=85;eye.updateProjectionMatrix();}controls.target.set(0,0,0);if(!p.flat)controls.update();else cam.lookAt(0,0,0);transition=1;}
-   if(p.flat!==lastFlat){if(p.flat)savedCamera.copy(cam.position);upStart.copy(cam.up);upEnd.set(0,p.flat?0:1,p.flat?-1:0);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
+   if(p.flat!==lastFlat){if(p.flat){savedCamera.copy(cam.position);savedZoom=cam.zoom;cam.zoom=1;}else cam.zoom=savedZoom;cam.updateProjectionMatrix();upStart.copy(cam.up);upEnd.set(0,p.flat?0:1,p.flat?-1:0);cameraStart.copy(cam.position);cameraEnd.copy(p.flat?new THREE.Vector3(.001,750,0):savedCamera);lastFlat=p.flat;transition=0;}
    const moving=transition<1;
    transition=Math.min(1,transition+dt/(p.reduced?.01:1.1));const ease=transition*transition*(3-2*transition);
    if(moving){cam.up.lerpVectors(upStart,upEnd,ease).normalize();cam.position.lerpVectors(cameraStart,cameraEnd,ease);cam.lookAt(0,0,0);}else if(!p.flat&&!ground){cam.up.set(0,1,0);controls.update(dt);}else cam.lookAt(0,0,0);
