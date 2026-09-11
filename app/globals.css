@@ -90,3 +90,31 @@ html[data-scheme=light] .orb-meter i{opacity:1}
 .house-control select:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .house-warning{flex-basis:100%;max-width:510px;margin:2px 0;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--popover);color:var(--foreground);font-size:13px;line-height:1.6}
 @media(max-width:520px){.house-control{gap:4px;padding:3px 5px}.house-control select{max-width:145px}.house-warning{font-size:12px}}
+
+/* Keep secondary mobile controls out of the chart drawing area. */
+.chart-options{display:contents}.chart-options[hidden]{display:none}.mobile-chart-toggle{display:none}
+.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 0;margin:0 0 10px;border:0;background:transparent!important;color:var(--foreground);text-align:left}
+.panel-heading:disabled{opacity:1;cursor:default}.panel-count{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted-foreground)}.panel-heading:disabled svg{display:none}.expanded{transform:rotate(90deg)}
+.data-section+[class=data-section]{margin-top:20px}.data-section>[hidden]{display:none!important}
+.telemetry>.network-button{width:100%;margin:0 0 12px}
+@media(max-width:700px){
+ .observatory:not(.is-live) .stage{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto auto auto;height:auto;min-height:0;max-height:none;padding:12px 12px 0;gap:10px 8px;overflow:visible}
+ .observatory:not(.is-live) .stage:before,.observatory:not(.is-live) .stage:after,.observatory:not(.is-live) .scene-heading,.observatory:not(.is-live) .scene-caption{display:none}
+ .observatory:not(.is-live) .view-toggle{position:static!important;grid-row:1;grid-column:1/-1;display:flex;width:100%;margin:0;max-width:none}
+ .observatory:not(.is-live) .view-toggle button{flex:1;min-height:44px;padding:8px 4px;font-size:14px;white-space:nowrap}
+ .observatory:not(.is-live) .view-toggle button span{font-size:12px;padding-left:3px}
+ .observatory:not(.is-live) .sky-host{position:relative;inset:auto;grid-row:2;grid-column:1/-1;width:100%;height:clamp(320px,95vw,510px);min-width:0}
+ .observatory:not(.is-live) .scene-tools{position:static;grid-row:3;grid-column:2;align-self:center;gap:8px}
+ .scene-tools .icon-button{width:44px;height:44px}
+ .mobile-chart-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;grid-row:3;grid-column:1;min-height:44px;font-size:14px;background:var(--popover);color:var(--foreground)}
+ .chart-options{display:flex;flex-direction:column;gap:14px;grid-row:4;grid-column:1/-1;min-width:0;padding:14px 0;border-top:1px solid var(--border)}.chart-options[hidden]{display:none}
+ .chart-options .observer-tools,.chart-options .axis-readout,.chart-options .scene-legend{position:static;inset:auto;max-width:100%;margin:0;padding:0;background:none;border-radius:0;pointer-events:auto}
+ .chart-options .observer-tools{display:flex;gap:8px;max-width:100%}.observer-tools button,.observer-tools .toggle-row{min-height:40px;font-size:13px}.observer-tools .toggle-row button{min-height:0}
+ .chart-options .house-control{min-height:40px;font-size:13px}.chart-options .house-control select{font-size:14px;max-width:180px;min-height:36px}
+ .chart-options .axis-readout{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px 20px}.axis-readout div{gap:8px}.chart-options .scene-legend{font-size:12px;line-height:1.8}
+ .telemetry{display:block!important;padding:14px 16px;height:auto;min-height:0;max-height:none}
+ .data-section{border-top:1px solid var(--border)}.data-section+[class=data-section]{margin-top:0}.panel-heading{min-height:56px;margin:0;padding:12px 0}.panel-heading .eyebrow{font-size:14px;letter-spacing:.04em}.data-section>div{padding-bottom:16px}
+ .data-section .aspect-list{max-height:none;overflow:visible}.data-section .network-quick{padding:0}.data-section .network-quick .toggle-row{font-size:14px;min-height:44px}
+ .birth-entry{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 16px}.birth-entry .section-note{grid-column:1/-1;font-size:12px}.birth-trigger{padding:9px 12px;min-height:44px}.birth-trigger small{display:none}.birth-entry>.location-button{grid-column:1/-1;min-height:40px;font-size:13px}.birth-entry .live-entry{padding:8px;font-size:14px}
+ .observatory.is-live .stage{display:block;padding:0}.observatory.is-live .sky-host{position:absolute;inset:0;height:100%}.is-live .mobile-chart-toggle,.is-live .chart-options{display:none!important}
+}
