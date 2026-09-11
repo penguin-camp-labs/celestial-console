@@ -23,3 +23,14 @@ test('True Lilith agrees with 199 independent Swiss Ephemeris osculating-apogee 
  }
  assert.ok(prograde>0&&retrograde>0);
 });
+
+const {meanLilith}=await import('../lib/lilith.mjs');
+const {sensitivePoints}=await import('../lib/observer.mjs');
+const meanFixtures=(await import('./mean-lilith-fixtures.json',{with:{type:'json'}})).default;
+test('mean Lilith agrees with 199 Swiss Ephemeris samples including ecliptic latitude and speed',()=>{
+ assert.equal(meanFixtures.samples.length,199);
+ for(const f of meanFixtures.samples){const p=meanLilith(f.time);assert.ok(Math.abs(delta(p.lon,f.lon))<.001);assert.ok(Math.abs(p.lat-f.lat)<.0001);assert.ok(Math.abs(p.speed-f.speed)<.00003);assert.ok(p.speed>0);assert.equal(p.distance,null);}
+ const t=Date.parse('2026-09-11T00:00:00Z'),truth=sensitivePoints(t,35,135),mean=sensitivePoints(t,35,135,undefined,'mean');
+ assert.ok(truth.points.some(p=>p.id==='TrueLilith'));assert.ok(!mean.points.some(p=>p.id==='TrueLilith'));assert.ok(mean.points.some(p=>p.id==='MeanLilith'));
+ assert.deepEqual(truth.points.filter(p=>p.id!=='TrueLilith'),mean.points.filter(p=>p.id!=='MeanLilith'));
+});

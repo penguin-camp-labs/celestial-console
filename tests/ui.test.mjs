@@ -196,6 +196,30 @@ await test('house selector retains the system and explains polar Placidus failur
  await click(button('3D 天球'));await click(byLabel('3Dハウス線'));assert.equal(globalThis.__skyProps.houses,true);assert.equal(globalThis.__skyProps.houseSystem,'campanus');
  await act(async()=>root.unmount());
 });
+
+await test('display preferences round-trip independently of birth data and preserve Lilith visibility when switching type',async()=>{
+ localStorage.clear();
+ const {defaultPreferences}=await import('../lib/preferences.mjs');
+ const initial={...defaultPreferences(),theme:'light',speed:7,houseSystem:'campanus',houses:true,minor:true,compound:true,asteroids:['Ceres'],lilithType:'mean'};
+ initial.aspectSettings[30]={enabled:false,orb:1.5};initial.patternTypes=['yod'];
+ localStorage.setItem('celestial.preferences.v1',JSON.stringify(initial));
+ root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush(80);
+ const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
+ assert.equal(globalThis.__skyProps.theme,'light');assert.equal(globalThis.__skyProps.houseSystem,'campanus');assert.equal(globalThis.__skyProps.houses,true);assert.match(byLabel('再生速度').textContent,/1週/);assert.equal(globalThis.__skyProps.playing,false);
+ assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
+ await choose('テーマ','sky');await click(byLabel('3Dハウス線'));await click(document.querySelector('.network-button'));
+ assert.equal(byLabel('セミセクスタイルのオーブ').value,'1.5');assert.equal(byLabel('セミセクスタイル 30°').getAttribute('aria-checked'),'false');
+ await input(byLabel('セミセクスタイルのオーブ'),'3.5');await click(byLabel('感受点をアスペクトに含める'));await click(byLabel('リリス（平均）'));await choose('リリスの種類','true');
+ assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'||b.id==='MeanLilith'),'switching type preserves hidden state');
+ await click(byLabel('リリス（True Lilith）'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.a)&&!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.b)));
+ await act(async()=>root.unmount());
+ root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ assert.equal(globalThis.__skyProps.theme,'sky');assert.equal(globalThis.__skyProps.houses,false);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));
+ const stored=JSON.parse(localStorage.getItem('celestial.preferences.v1'));assert.equal(stored.aspectSettings[30].orb,3.5);assert.equal(stored.includePoints,false);assert.equal(stored.lilithType,'true');assert.ok(!('time' in stored));
+ await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);const birth=localStorage.getItem('celestial.observatory.v1');assert.ok(birth);
+ await click(byLabel('このブラウザに表示設定を保存'));assert.equal(localStorage.getItem('celestial.preferences.v1'),null);assert.equal(localStorage.getItem('celestial.observatory.v1'),birth);
+ await choose('テーマ','dark');assert.equal(localStorage.getItem('celestial.preferences.v1'),null);await act(async()=>root.unmount());localStorage.clear();
+});
 dom.window.close();
 
 

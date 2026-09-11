@@ -120,3 +120,5 @@ html[data-scheme=light] .orb-meter i{opacity:1}
  .birth-entry{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 16px}.birth-entry .section-note{grid-column:1/-1;font-size:12px}.birth-trigger{padding:9px 12px;min-height:44px}.birth-trigger small{display:none}.birth-entry>.location-button{grid-column:1/-1;min-height:40px;font-size:13px}.birth-entry .live-entry{padding:8px;font-size:14px}
  .observatory.is-live .stage{display:block;padding:0}.observatory.is-live .sky-host{position:absolute;inset:0;height:100%}.is-live .mobile-chart-toggle,.is-live .chart-options{display:none!important}
 }
+
+.save-options{display:flex;flex-direction:column;gap:4px;margin-left:auto}.privacy-footer .save-options .toggle-row{margin-left:0;width:100%;justify-content:space-between}
