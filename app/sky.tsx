@@ -53,7 +53,7 @@ export default function Sky(props:Props){
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
   }
   GLYPHS.forEach((s:string,i:number)=>{const l=label(s,i%3===0?'#a5ded9':'#8daab7',22);l.position.copy(v(i*30+15,0,282));});
-  const earthG=new THREE.SphereGeometry(9,24,16),earthM=new THREE.MeshBasicMaterial({color:'#8fe6e0',wireframe:true,transparent:true,opacity:.75}),earth=new THREE.Mesh(earthG,earthM);world.add(earth);disposable.push(earthG,earthM);
+  const earthG=new THREE.SphereGeometry(9,32,24),earthM=new THREE.MeshPhongMaterial({color:'#8fe6e0',specular:'#080b0e',shininess:8,emissive:'#8fe6e0',emissiveIntensity:.025}),earth=new THREE.Mesh(earthG,earthM);earthM.userData.bodyMaterial=true;world.add(earth);disposable.push(earthG,earthM);
   const earthLabel=label('EARTH','#71989c',9);earthLabel.position.set(0,-23,0);
   function makeNode(b:any){
    const point=b.kind==='point',radius=point?5.5:b.id==='Sun'?7.2:b.id==='Moon'?6.2:5.5;
