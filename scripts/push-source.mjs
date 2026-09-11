@@ -1,5 +1,7 @@
 // Receive a short-lived Sites credential through stdin. Never write it to disk.
 import {spawnSync} from 'node:child_process';
+// Disable terminal echo when receiving credentials interactively.
+if(process.stdin.isTTY)process.stdin.setRawMode(true);
 let input='';
 console.log('READY_FOR_SOURCE_CREDENTIAL');
 process.stdin.setEncoding('utf8');
