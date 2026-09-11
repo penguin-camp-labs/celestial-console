@@ -49,9 +49,9 @@ export default function Sky(props:Props){
   document.fonts?.load('400 44px "BIZ UDPGothic"','東西南北天頂').then(refreshLabels).catch(()=>{});
   function label(text:string,color:string,size=24,minPixels=0){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(tr(text),128,40);
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(tr(text),128,40,244);
    const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
-   redrawLabels.push(()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillText(text,128,40);tex.needsUpdate=true;});
+   redrawLabels.push(()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillText(tr(text),128,40,244);tex.needsUpdate=true;});
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
   }
   GLYPHS.forEach((s:string,i:number)=>{const l=label(s,i%3===0?'#a5ded9':'#8daab7',22);l.position.copy(v(i*30+15,0,282));});
@@ -78,11 +78,12 @@ export default function Sky(props:Props){
   const directions=[label('東 E','#c0d4d8',24,26),label('西 W','#c0d4d8',24,26),label('北 N','#c0d4d8',24,26),label('南 S','#c0d4d8',24,26),label('天頂','#93b8c0',24,26)];
   const equator=line(circle(),'#90a6d8',.3);
   const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
-  const divisionLines=Array.from({length:12},(_,i)=>{const l=line(Array.from({length:129},()=>new THREE.Vector3()),i%3===0?'#7596a1':'#315562',.23);l.userData.houseBoundary=i+1;return l;});
+  const divisionLines=Array.from({length:12},(_,i)=>{const l=line(Array.from({length:129},()=>new THREE.Vector3()),i%3===0?'#7596a1':'#315562',.23);l.userData.houseBoundary=i+1;l.geometry.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(129*4).fill(1),4));(l.material as THREE.LineBasicMaterial).vertexColors=true;return l;});
   let divisionFrame:any=null,divisionSystem='';
   const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',12);l.userData.houseNumber=i+1;return l;});
   const ascL=label('ASC','#f2c386',24,26),mcL=label('MC','#b6bceb',24,26);
-  const navigationLabels=[...directions,ascL,mcL];
+  const polarLabels=[label('周極域','#71989c',18,22),label('周極域','#71989c',18,22)];polarLabels.forEach(l=>l.userData.circumpolar=true);
+  const navigationLabels=[...directions,ascL,mcL,...polarLabels];
   const selectionGeo=new THREE.RingGeometry(8,9,32),selectionMat=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false});
   const selection=new THREE.Mesh(selectionGeo,selectionMat);world.add(selection);disposable.push(selectionGeo,selectionMat);
   const starField=new THREE.Group();starField.userData.starField=true;world.add(starField);
@@ -173,9 +174,12 @@ export default function Sky(props:Props){
 
    const showHouses=p.flat?(p.houses2d??true):p.houses;
    const showDivision=p.gridMode==='houses'&&morph<.995;
+   const polarLatitude=c.latitude??Math.asin(Math.max(-1,Math.min(1,c.zenith[1]*Math.sin(c.eps*DEG)+c.zenith[2]*Math.cos(c.eps*DEG))))/DEG;
+   const fadePolar=p.houseSystem==='placidus'&&Math.abs(polarLatitude)>.01;
    if((showHouses||showDivision)&&(c!==houseFrame||p.houseSystem!==houseMode)){houseFrame=c;houseMode=p.houseSystem;houseResult=houseCusps(c,p.houseSystem);}
-   if(showDivision&&(c!==divisionFrame||p.houseSystem!==divisionSystem)){divisionFrame=c;divisionSystem=p.houseSystem;const curves=houseBoundaryCurves(c,p.houseSystem,houseResult);curves.forEach((points:number[][],i:number)=>updateLine(divisionLines[i],points.map((p:number[])=>new THREE.Vector3(p[0]*218,p[2]*218,-p[1]*218))));}
+   if(showDivision&&(c!==divisionFrame||p.houseSystem!==divisionSystem)){divisionFrame=c;divisionSystem=p.houseSystem;const curves=houseBoundaryCurves(c,p.houseSystem,houseResult);curves.forEach((points:number[][],i:number)=>{const l=divisionLines[i];updateLine(l,points.map((p:number[])=>new THREE.Vector3(p[0]*218,p[2]*218,-p[1]*218)));const colors=l.geometry.getAttribute('color') as THREE.BufferAttribute;for(let k=0;k<129;k++){const a=fadePolar?Math.min(1,k/8,(128-k)/8):1;colors.setW(k,a*a*(3-2*a));}colors.needsUpdate=true;});}
    divisionLines.forEach((l,i)=>{l.visible=showDivision&&houseResult.available;(l.material as THREE.LineBasicMaterial).opacity=(i%3===0?(bright?.30:.40):(bright?.14:.23))*(1-morph);});
+   polarLabels.forEach((l,i)=>{const sign=i===0?1:-1;l.position.set(0,sign*242*Math.cos(c.eps*DEG),-sign*242*Math.sin(c.eps*DEG));l.visible=showDivision&&houseResult.available&&fadePolar&&!(hideBelow&&l.position.clone().applyQuaternion(world.quaternion).y<0);l.material.opacity=.8*(1-morph);});
    houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=bright?.65+.2*morph:.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses||showDivision;mcL.visible=p.horizon||showHouses||showDivision;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
