@@ -10,7 +10,7 @@ import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
-import {themeAppearance,inkColor,aspectInkColor} from '@/lib/theme.mjs';
+import {themeAppearance,inkColor,aspectInkColor,bodyInkColor} from '@/lib/theme.mjs';
 type Props={locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
@@ -64,7 +64,7 @@ export default function Sky(props:Props){
    mat.userData.bodyMaterial=true;
    const mesh=new THREE.Mesh(geo,mat);mesh.userData.id=b.id;mesh.userData.radius=radius;world.add(mesh);disposable.push(geo,mat);
    if(point){const outlineGeometry=new THREE.EdgesGeometry(geo),outlineMaterial=new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.6});outlineMaterial.userData.themeColor=b.color;const outline=new THREE.LineSegments(outlineGeometry,outlineMaterial);outline.raycast=()=>{};mesh.add(outline);disposable.push(outlineGeometry,outlineMaterial);}
-   mat.userData.themeColor=b.color;const l=label(b.symbol,b.color,23);
+   mat.userData.themeColor=b.color;const l=label(b.symbol,b.color,23);l.material.userData.bodyGlyph=true;
    const tether=line([v(0),v(0)],b.color,.2);
    return {mesh,label:l,tether,lon:0,lat:0,initialized:false};
   }
@@ -183,7 +183,7 @@ export default function Sky(props:Props){
    skyDome.visible=theme==='sky'&&morph<.995;skyDome.position.copy(activeCamera.position);
    skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;skyMaterial.uniforms.groundView.value=ground?1:0;
    // Update colour, never recreate geometry/camera when switching themes.
-   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){mat.color.set(mat.userData.bodyMaterial?mat.userData.themeColor:o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright):inkColor(mat.userData.themeColor,bright));}});
+   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){mat.color.set(mat.userData.bodyMaterial?mat.userData.themeColor:mat.userData.bodyGlyph?bodyInkColor(mat.userData.themeColor,bright):o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright):inkColor(mat.userData.themeColor,bright));}});
    keyLight.position.set(-350,450,650).applyQuaternion(activeCamera.quaternion);fillLight.position.set(400,-100,-250).applyQuaternion(activeCamera.quaternion);
    const viewHeight=Math.max(1,host?.clientHeight??660),cameraInverse=activeCamera.matrixWorldInverse;
    activeCamera.updateMatrixWorld();
