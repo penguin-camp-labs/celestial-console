@@ -20,5 +20,6 @@ for(const pkg of packages){const path=join('node_modules',pkg);let files;try{fil
 notices+='\n\n--- GeoNames city data ---\n'+await readFile('public/data/NOTICE.txt','utf8');
 notices+='\n\n--- NASA/JPL Horizons ---\nhttps://ssd.jpl.nasa.gov/horizons/\nApparent geocentric ICRF vectors (LT+S, UT), sampled every 8 days, adapted to Float32 and cubic Hermite interpolation. Retrieval metadata: /ephemeris/manifest.json.\n';
 notices+='\n\n--- Hipparcos bright stars ---\nESA 1997, The Hipparcos and Tycho Catalogues, ESA SP-1200. Catalogue I/239/hip_main via CDS/VizieR (DOI: 10.26093/cds/vizier).\nhttps://cdsarc.cds.unistra.fr/viz-bin/cat/I/239\n22 entries with Vmag <= 1.5, excluding unresolved Alpha Centauri B (HIP 71681). ICRS coordinates at J1991.25 and proper motions, adapted for this display.\n';
+notices+='\n\n--- BIZ UDPGothic (Google Fonts) ---\n'+await readFile('public/fonts/OFL.txt','utf8');
 await writeFile(join(dir,'third-party-notices.txt'),notices);
 console.log('Static index verified. CSP script hashes, privacy headers and license notices generated.');

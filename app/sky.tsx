@@ -42,10 +42,14 @@ export default function Sky(props:Props){
   for(let lon=0;lon<180;lon+=30)line(Array.from({length:181},(_,i)=>v(lon,i*2)),'#315562',.23,sphere);
   line(circle(0,218),'#8ae7dc',.75);line(circle(0,256),'#487080',.45);line(circle(0,264),'#2f4d5d',.45);
   for(let i=0;i<360;i+=2)line([v(i,0,i%30===0?238:i%10===0?248:253),v(i,0,259)],'#7596a1',i%30===0?.7:.32);
+  const redrawLabels:(()=>void)[]=[];let labelsDisposed=false;
+  const refreshLabels=()=>{if(!labelsDisposed)redrawLabels.forEach(draw=>draw());};
+  document.fonts?.load('400 44px "BIZ UDPGothic"','東西南北天頂').then(refreshLabels).catch(()=>{});
   function label(text:string,color:string,size=24,minPixels=0){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=minPixels?'400 44px "Helvetica Neue", "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif':'40px "Segoe UI Symbol", "Yu Gothic UI", sans-serif';ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
    const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
+   redrawLabels.push(()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillText(text,128,40);tex.needsUpdate=true;});
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
   }
   GLYPHS.forEach((s:string,i:number)=>{const l=label(s,i%3===0?'#a5ded9':'#8daab7',22);l.position.copy(v(i*30+15,0,282));});
@@ -188,7 +192,7 @@ export default function Sky(props:Props){
   }
   renderer.setAnimationLoop(animate);
   const lost=(e:Event)=>{e.preventDefault();renderer.setAnimationLoop(null);setFailure('描画への接続が失われました。ページを再読み込みしてください。');};renderer.domElement.addEventListener('webglcontextlost',lost);
-  return()=>{renderer.setAnimationLoop(null);resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointermove',move);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('wheel',wheel);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('keydown',key);renderer.domElement.removeEventListener('webglcontextlost',lost);disposable.forEach(d=>d.dispose());renderer.dispose();renderer.domElement.remove();};
+  return()=>{labelsDisposed=true;redrawLabels.length=0;renderer.setAnimationLoop(null);resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointermove',move);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('wheel',wheel);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('keydown',key);renderer.domElement.removeEventListener('webglcontextlost',lost);disposable.forEach(d=>d.dispose());renderer.dispose();renderer.domElement.remove();};
  },[]);
  return <div className="sky-host" ref={mount}>{failure&&<div className="render-error" role="alert"><p>{failure}</p><p>天体位置とアスペクトは右の一覧でも確認できます。</p></div>}</div>;
 }
