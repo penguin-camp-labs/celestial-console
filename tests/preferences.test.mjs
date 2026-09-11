@@ -9,3 +9,5 @@ test('preferences reject unknown schemas and restore only valid fields',()=>{
 });
 
 test('sphere guide preferences preserve old grid visibility and new house mode',()=>{assert.equal(validatePreferences({version:1,grid:false}).gridMode,'off');assert.equal(validatePreferences({version:1,grid:true}).gridMode,'grid');assert.equal(validatePreferences({version:1,gridMode:'houses'}).gridMode,'houses');});
+
+test('additional house choices survive saved preference round trips',()=>{for(const houseSystem of ['koch','regiomontanus','porphyry'])assert.equal(validatePreferences(JSON.parse(JSON.stringify({...defaultPreferences(),houseSystem}))).houseSystem,houseSystem);});

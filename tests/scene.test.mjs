@@ -164,12 +164,12 @@ await test('themes preserve camera and chart geometry while solar daylight contr
 });
 
 await test('house changes render reference cusps without resetting the camera',async()=>{
- const fixture=JSON.parse(await readFile('tests/house-reference.json','utf8')).samples;
+ const fixture=[...JSON.parse(await readFile('tests/house-reference.json','utf8')).samples,...JSON.parse(await readFile('tests/house-additions-reference.json','utf8')).samples];
  const root=createRoot(document.getElementById('root')),t=Date.parse('2026-09-10T00:00:00Z');
  let props={chart:calculate(t,35.6812,139.7671),houseSystem:'equal',flat:true,aspects:true,grid:true,horizon:true,houses:true,selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
  let tick=1000;const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(tick+=20));};
  await render();const camera=globalThis.__camera,lines=[];globalThis.__scene.traverse(o=>{if(o.userData.house)lines.push(o);});
- for(const system of ['placidus','campanus','whole','equal']){
+ for(const system of ['placidus','campanus','whole','equal','koch','regiomontanus','porphyry']){
   props={...props,houseSystem:system};await render();assert.equal(globalThis.__camera,camera);
   const expected=fixture.find(s=>s.iso==='2026-09-10T00:00:00Z'&&s.latitude===35.6812&&s.system===system);
   lines.forEach((line,i)=>{assert.ok(line.visible);const point=new Vector3().fromBufferAttribute(line.geometry.getAttribute('position'),1);const lon=((Math.atan2(-point.z,point.x)*180/Math.PI)%360+360)%360;assert.ok(Math.abs(((lon-expected.cusps[i]+540)%360)-180)<.002);});
@@ -183,6 +183,7 @@ await test('sphere house divisions follow the selected system and disappear in 2
  const root=createRoot(document.getElementById('root')),time=Date.UTC(2026,8,11);let props={chart:{...calculate(time,35,135),time,latitude:35,longitude:135},flat:false,aspects:false,grid:false,gridMode:'houses',horizon:true,houses:false,houseSystem:'campanus',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
  const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(performance.now()));};await render();const lines=[];globalThis.__scene.traverse(o=>{if(o.userData.houseBoundary)lines.push(o);});assert.equal(lines.length,12);assert.ok(lines.every(l=>l.visible));const camera=globalThis.__camera,before=Array.from(lines[1].geometry.attributes.position.array);
  props={...props,houseSystem:'placidus'};await render();assert.equal(globalThis.__camera,camera);assert.notDeepEqual(Array.from(lines[1].geometry.attributes.position.array),before);const colors=lines[1].geometry.attributes.color;assert.equal(colors.getW(0),0);assert.equal(colors.getW(64),1);assert.equal(colors.getW(128),0);assert.ok(colors.getW(4)>0&&colors.getW(4)<1);const polar=[];globalThis.__scene.traverse(o=>{if(o.userData.circumpolar)polar.push(o);});assert.equal(polar.filter(l=>l.visible).length,2);
+ for(const houseSystem of ['koch','regiomontanus','porphyry']){props={...props,houseSystem};await render();assert.equal(globalThis.__camera,camera);assert.ok(lines.every(l=>l.visible));assert.ok(lines.every(l=>Array.from(l.geometry.attributes.position.array).every(Number.isFinite)));assert.equal(lines[1].geometry.attributes.color.getW(0),1);assert.equal(polar.filter(l=>l.visible).length,0);}
  props={...props,gridMode:'off'};await render();assert.ok(lines.every(l=>!l.visible));props={...props,gridMode:'houses',flat:true};await render();assert.ok(lines.every(l=>!l.visible));await act(async()=>root.unmount());
 });
 dom.window.close();

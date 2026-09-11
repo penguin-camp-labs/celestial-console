@@ -22,3 +22,12 @@ test('Placidus converges near the polar boundary and through all sidereal quadra
   h.cusps.forEach((c,i)=>{const width=wrap(h.cusps[(i+1)%12]-c);assert.ok(width>0&&width<180);assert.ok(wrap(h.centres[i]-c)<width);});
  }
 });
+
+test('Koch, Regiomontanus and Porphyry match 154 independent reference charts',()=>{
+ const refs=JSON.parse(readFileSync(new URL('./house-additions-reference.json',import.meta.url),'utf8'));
+ for(const sample of refs.samples){const f={...frame(Date.parse(sample.iso),sample.latitude,sample.longitude),latitude:sample.latitude},h=houseCusps(f,sample.system);assert.ok(h.available);h.cusps.forEach((v,i)=>assert.ok(Math.abs(delta(v,sample.cusps[i]))<.002,JSON.stringify({...sample,cusp:i})));}
+});
+test('Koch rejects polar charts without fallback and converges near the polar circle',()=>{
+ for(const latitude of [-89,-78,78,89]){const h=houseCusps({...frame(Date.UTC(2026,8,11),latitude,15),latitude},'koch');assert.equal(h.available,false);assert.deepEqual(h.cusps,[]);assert.match(h.message,/コッホ/);}
+ for(const latitude of [-66.5,-35,0,35,66.5])for(let hour=0;hour<24;hour++){const f={...frame(Date.UTC(2026,8,11,hour),latitude,139.7),latitude},h=houseCusps(f,'koch');assert.ok(h.available);assert.ok(Math.abs(delta(h.cusps[0],f.asc))<1e-8);assert.ok(Math.abs(delta(h.cusps[9],f.mc))<1e-8);h.cusps.forEach((c,i)=>assert.ok(Math.abs(Math.abs(delta(h.cusps[(i+6)%12],c))-180)<1e-8));}
+});

@@ -187,7 +187,7 @@ await test('theme selection reaches portals, live viewing and restored observati
 await test('house selector retains the system and explains polar Placidus failure',async()=>{
  localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
  const choose=async(value)=>{const el=byLabel('ハウス方式');await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- assert.equal(byLabel('ハウス方式').options.length,4);await choose('placidus');assert.equal(globalThis.__skyProps.houseSystem,'placidus');
+ assert.equal(byLabel('ハウス方式').options.length,7);for(const system of ['koch','regiomontanus','porphyry','placidus']){await choose(system);assert.equal(globalThis.__skyProps.houseSystem,system);}
  await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.houseSystem,'placidus');
  await input(document.querySelector('input[min="-89"]'),'78');await act(async()=>document.querySelectorAll('.condition-block form')[1].dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush();
  assert.match(document.querySelector('.house-warning').textContent,/プラシーダス/);assert.equal(byLabel('ハウス方式').value,'placidus');
