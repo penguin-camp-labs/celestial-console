@@ -122,3 +122,5 @@ html[data-scheme=light] .orb-meter i{opacity:1}
 }
 
 .save-options{display:flex;flex-direction:column;gap:4px;margin-left:auto}.privacy-footer .save-options .toggle-row{margin-left:0;width:100%;justify-content:space-between}
+
+.observatory select,.birth-form select,.network-dialog select{background:var(--popover);color:var(--foreground);border:1px solid var(--border);border-radius:4px;padding:6px 8px;max-width:100%}select option{background:var(--popover);color:var(--foreground)}.language-control{display:flex;align-items:center;gap:8px;font-size:12px}.language-control select{min-width:92px}.mast-right{flex-wrap:wrap}@media(max-width:700px){.mast-right{gap:8px}.mast{height:auto;min-height:86px}.language-control>span{display:none}}

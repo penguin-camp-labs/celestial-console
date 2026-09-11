@@ -106,12 +106,11 @@ await test('ground controls, point visibility and opt-in GPS keep location priva
  const oldLevel=globalThis.__skyProps.level;await click(button('地平線を水平に'));assert.equal(globalThis.__skyProps.level,oldLevel+1);
  await click(document.querySelector('.network-button'));
  for(const id of ['NorthNode','SouthNode','Vertex','TrueLilith'])assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id===id));
- await click(byLabel('ドラゴンヘッド'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'));
- await click(byLabel('ドラゴンテイル'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='SouthNode'));
+ await click(byLabel('ドラゴンヘッド・テイル'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'||b.id==='SouthNode'));
  await click(byLabel('バーテックス'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Vertex'));
  const lilith=globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith');assert.ok(lilith&&Math.abs(lilith.lat)>0);assert.equal(lilith.kind,'point');
- await click(byLabel('リリス（True Lilith）'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>e.a!=='TrueLilith'&&e.b!=='TrueLilith'));
- await click(byLabel('リリス（True Lilith）'));assert.deepEqual(globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith'),lilith);
+ await click(byLabel('リリス（真位置）'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>e.a!=='TrueLilith'&&e.b!=='TrueLilith'));
+ await click(byLabel('リリス（真位置）'));assert.deepEqual(globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith'),lilith);
  await click(byLabel('月の軌道面'));assert.equal(globalThis.__skyProps.nodeOrbit,false);
  await click(byLabel('卯酉線（バーテックスの基準）'));assert.equal(globalThis.__skyProps.primeVertical,false);
  await click(byLabel('感受点の移動軌跡'));assert.equal(globalThis.__skyProps.trails,true);assert.equal(globalThis.__skyProps.chart.pointTrails.length,3);
@@ -209,9 +208,9 @@ await test('display preferences round-trip independently of birth data and prese
  assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
  await choose('テーマ','sky');await click(byLabel('3Dハウス線'));await click(document.querySelector('.network-button'));
  assert.equal(byLabel('セミセクスタイルのオーブ').value,'1.5');assert.equal(byLabel('セミセクスタイル 30°').getAttribute('aria-checked'),'false');
- await input(byLabel('セミセクスタイルのオーブ'),'3.5');await click(byLabel('感受点をアスペクトに含める'));await click(byLabel('リリス（平均）'));await choose('リリスの種類','true');
+ await input(byLabel('セミセクスタイルのオーブ'),'3.5');await click(byLabel('感受点をアスペクトに含める'));await click(byLabel('リリス（平均位置）'));await choose('リリスの種類','true');
  assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'||b.id==='MeanLilith'),'switching type preserves hidden state');
- await click(byLabel('リリス（True Lilith）'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.a)&&!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.b)));
+ await click(byLabel('リリス（真位置）'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.a)&&!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.b)));
  await act(async()=>root.unmount());
  root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
  assert.equal(globalThis.__skyProps.theme,'sky');assert.equal(globalThis.__skyProps.houses,false);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));
@@ -219,6 +218,24 @@ await test('display preferences round-trip independently of birth data and prese
  await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);const birth=localStorage.getItem('celestial.observatory.v1');assert.ok(birth);
  await click(byLabel('このブラウザに表示設定を保存'));assert.equal(localStorage.getItem('celestial.preferences.v1'),null);assert.equal(localStorage.getItem('celestial.observatory.v1'),birth);
  await choose('テーマ','dark');assert.equal(localStorage.getItem('celestial.preferences.v1'),null);await act(async()=>root.unmount());localStorage.clear();
+});
+
+await test('English localization covers the chart, all dialogs, errors and stored language without resetting the chart',async()=>{
+ localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
+ const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
+ const noJapanese=(element)=>{const text=element.textContent.replaceAll('日本語','');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/.test(text),'Untranslated text: '+text.match(/.{0,35}[\u3040-\u30ff\u3400-\u9fff].{0,65}/)?.[0]);};
+ const time=globalThis.__skyProps.chart.time;await choose('Language / 言語','en');assert.equal(document.documentElement.lang,'en');assert.equal(globalThis.__skyProps.chart.time,time);assert.equal(globalThis.__skyProps.locale,'en');assert.ok(document.querySelector('.planet-table').textContent.includes('Sun'));noJapanese(document.querySelector('main'));
+ await click(byLabel('Display settings'));noJapanese(document.querySelector('.settings-dialog'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await click(document.querySelector('.network-button'));noJapanese(document.querySelector('.network-dialog'));assert.equal(byLabel('Lilith type').options[0].textContent,'True position');assert.equal(byLabel('Lilith type').options[1].textContent,'Mean position');
+ await click(byLabel('North & South Nodes'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'||b.id==='SouthNode'));await click(byLabel('North & South Nodes'));assert.equal(globalThis.__skyProps.chart.bodies.filter(b=>b.id==='NorthNode'||b.id==='SouthNode').length,2);
+ await choose('Lilith type','mean');assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await click(byLabel('Help and privacy'));noJapanese(document.querySelector('.help-dialog'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await click(document.querySelector('.birth-trigger'));await flush(60);noJapanese(document.querySelector('.birth-form'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await choose('House system','placidus');await input(document.querySelector('input[min="-89"]'),'78');await act(async()=>document.querySelectorAll('.condition-block form')[1].dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush();assert.match(document.querySelector('.house-warning').textContent,/Placidus/);noJapanese(document.querySelector('.house-warning'));
+ await click(byLabel('Save display preferences in this browser'));assert.equal(JSON.parse(localStorage.getItem('celestial.preferences.v1')).locale,'en');assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
+ await act(async()=>root.unmount());root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();assert.equal(byLabel('Language / 言語').value,'en');
+ await choose('Language / 言語','ja');assert.equal(document.documentElement.lang,'ja');assert.ok(document.querySelector('.planet-table').textContent.includes('太陽'));await click(document.querySelector('.network-button'));assert.equal(byLabel('リリスの種類').options[0].textContent,'真位置');assert.equal(byLabel('リリスの種類').options[1].textContent,'平均位置');
+ await act(async()=>root.unmount());localStorage.clear();
 });
 dom.window.close();
 

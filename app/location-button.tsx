@@ -1,3 +1,4 @@
+import {t as tr} from './use-locale';
 import {useEffect,useRef,useState} from 'react';
 import {MapPin} from 'lucide-react';
 export default function LocationButton({onLocation,onMessage}: {onLocation:(lat:number,lon:number)=>void;onMessage:(message:string)=>void}){
@@ -15,5 +16,5 @@ export default function LocationButton({onLocation,onMessage}: {onLocation:(lat:
   },error=>{if(!done())return;onMessage(error.code===1?'位置情報が許可されていません。ブラウザのサイト設定で許可するか、座標を直接入力してください。':error.code===3?'現在地の取得がタイムアウトしました。再試行するか座標を直接入力してください。':'現在地を取得できませんでした。端末の位置情報設定を確認してください。');},{enableHighAccuracy:true,timeout:15000,maximumAge:0});}
   catch{if(done())onMessage('現在地を取得できません。このサイトを通常のブラウザで開き、位置情報の許可を確認してください。');}
  };
- return <button className="location-button" type="button" onClick={locate} disabled={busy} aria-busy={busy}><MapPin size={15}/>{busy?'現在地を取得中…':'現在地を取得（GPS）'}</button>;
+ return <button className="location-button" type="button" onClick={locate} disabled={busy} aria-busy={busy}><MapPin size={15}/>{tr(busy?'現在地を取得中…':'現在地を取得（GPS）')}</button>;
 }

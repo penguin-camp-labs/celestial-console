@@ -1,4 +1,5 @@
 'use client';
+import {t as tr} from './use-locale';
 import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -10,7 +11,7 @@ import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
 import {themeAppearance,inkColor,aspectInkColor} from '@/lib/theme.mjs';
-type Props={theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+type Props={locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -19,7 +20,7 @@ export default function Sky(props:Props){
   let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}catch{setFailure('この環境では3D描画を開始できません。WebGLを有効にするか、対応するブラウザをお使いください。');return;}
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.setClearColor(0x060c12,0);
-  renderer.domElement.setAttribute('aria-label','天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。');
+  renderer.domElement.setAttribute('aria-label',tr('天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。'));
   renderer.domElement.tabIndex=0;host.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),world=new THREE.Group();scene.add(world);
   const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.copy(live.current.flat?new THREE.Vector3(.001,750,0):new THREE.Vector3(0,0,760));cam.up.set(0,1,0);
@@ -43,11 +44,12 @@ export default function Sky(props:Props){
   line(circle(0,218),'#8ae7dc',.75);line(circle(0,256),'#487080',.45);line(circle(0,264),'#2f4d5d',.45);
   for(let i=0;i<360;i+=2)line([v(i,0,i%30===0?238:i%10===0?248:253),v(i,0,259)],'#7596a1',i%30===0?.7:.32);
   const redrawLabels:(()=>void)[]=[];let labelsDisposed=false;
+  let labelLocale=live.current.locale;
   const refreshLabels=()=>{if(!labelsDisposed)redrawLabels.forEach(draw=>draw());};
   document.fonts?.load('400 44px "BIZ UDPGothic"','東西南北天頂').then(refreshLabels).catch(()=>{});
   function label(text:string,color:string,size=24,minPixels=0){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(tr(text),128,40);
    const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
    redrawLabels.push(()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillText(text,128,40);tex.needsUpdate=true;});
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
@@ -186,6 +188,7 @@ export default function Sky(props:Props){
    const viewHeight=Math.max(1,host?.clientHeight??660),cameraInverse=activeCamera.matrixWorldInverse;
    activeCamera.updateMatrixWorld();
    const unitsPerPixel=(position:THREE.Vector3)=>ground?2*Math.max(1,-position.clone().applyQuaternion(world.quaternion).applyMatrix4(cameraInverse).z)*Math.tan(eye.fov*DEG/2)/viewHeight:(cam.top-cam.bottom)/(viewHeight*cam.zoom);
+   if(labelLocale!==p.locale){labelLocale=p.locale;refreshLabels();renderer.domElement.setAttribute('aria-label',tr('天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。'));}
    navigationLabels.forEach(l=>{const unit=unitsPerPixel(l.position),height=Math.min(32,Math.max(l.userData.minPixels,l.userData.labelSize/unit))*unit;l.scale.set(height*3.2,height,1);});
    nodes.forEach(n=>{const unit=unitsPerPixel(n.mesh.position),size=Math.max(1,Math.min(1.8,8*unit/(2*n.mesh.userData.radius)));n.mesh.scale.setScalar(size*(p.selected===n.mesh.userData.id?1.5:1));});
    starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
@@ -194,6 +197,6 @@ export default function Sky(props:Props){
   const lost=(e:Event)=>{e.preventDefault();renderer.setAnimationLoop(null);setFailure('描画への接続が失われました。ページを再読み込みしてください。');};renderer.domElement.addEventListener('webglcontextlost',lost);
   return()=>{labelsDisposed=true;redrawLabels.length=0;renderer.setAnimationLoop(null);resize.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointermove',move);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('wheel',wheel);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('keydown',key);renderer.domElement.removeEventListener('webglcontextlost',lost);disposable.forEach(d=>d.dispose());renderer.dispose();renderer.domElement.remove();};
  },[]);
- return <div className="sky-host" ref={mount}>{failure&&<div className="render-error" role="alert"><p>{failure}</p><p>天体位置とアスペクトは右の一覧でも確認できます。</p></div>}</div>;
+ return <div className="sky-host" ref={mount}>{tr(failure&&<div className="render-error" role="alert"><p>{tr(failure)}</p><p>{tr("天体位置とアスペクトは右の一覧でも確認できます。")}</p></div>)}</div>;
 }
 
