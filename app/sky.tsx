@@ -44,7 +44,7 @@ export default function Sky(props:Props){
   for(let i=0;i<360;i+=2)line([v(i,0,i%30===0?238:i%10===0?248:253),v(i,0,259)],'#7596a1',i%30===0?.7:.32);
   function label(text:string,color:string,size=24,minPixels=0){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'600 48px':'40px')+' "Segoe UI Symbol", "Yu Gothic UI", sans-serif';ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=minPixels?'400 44px "Helvetica Neue", "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif':'40px "Segoe UI Symbol", "Yu Gothic UI", sans-serif';ctx.fillStyle='#ffffff';ctx.fillText(text,128,40);
    const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
   }
@@ -54,7 +54,7 @@ export default function Sky(props:Props){
   function makeNode(b:any){
    const point=b.kind==='point',radius=point?5.5:b.id==='Sun'?7.2:b.id==='Moon'?6.2:5.5;
    const geo=point?new THREE.OctahedronGeometry(radius):new THREE.SphereGeometry(radius,28,18);
-   const mat=new THREE.MeshPhongMaterial({color:b.color,specular:point?'#ffffff':'#d9e8f2',shininess:point?90:55,flatShading:point,emissive:b.color,emissiveIntensity:b.id==='Sun'?.12:.025});
+   const mat=new THREE.MeshPhongMaterial({color:b.color,specular:'#080b0e',shininess:8,flatShading:point,emissive:b.color,emissiveIntensity:b.id==='Sun'?.12:.025});
    mat.userData.bodyMaterial=true;
    const mesh=new THREE.Mesh(geo,mat);mesh.userData.id=b.id;mesh.userData.radius=radius;world.add(mesh);disposable.push(geo,mat);
    if(point){const outlineGeometry=new THREE.EdgesGeometry(geo),outlineMaterial=new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.6});outlineMaterial.userData.themeColor=b.color;const outline=new THREE.LineSegments(outlineGeometry,outlineMaterial);outline.raycast=()=>{};mesh.add(outline);disposable.push(outlineGeometry,outlineMaterial);}
@@ -69,11 +69,11 @@ export default function Sky(props:Props){
   const lunarPath=line(circle(),'#9ae0ce',.55);lunarPath.userData.lunarOrbit=true;
   const primePath=line(circle(),'#f4c184',.55);primePath.userData.primeVertical=true;
   const trailLines=['NorthNode','SouthNode','Vertex'].map((id,i)=>{const geo=new THREE.BufferGeometry().setFromPoints(Array.from({length:i===2?192:144},()=>new THREE.Vector3())),mat=new THREE.LineBasicMaterial({color:['#9ae0ce','#c7b5ed','#f4c184'][i],transparent:true,opacity:.55,depthWrite:false}),l=new THREE.LineSegments(geo,mat);mat.userData.themeColor=['#9ae0ce','#c7b5ed','#f4c184'][i];l.userData.trail=id;world.add(l);disposable.push(geo,mat);return l;});
-  const directions=[label('東 E','#c0d4d8',28,32),label('西 W','#c0d4d8',28,32),label('北 N','#c0d4d8',28,32),label('南 S','#c0d4d8',28,32),label('天頂','#93b8c0',28,32)];
+  const directions=[label('東 E','#c0d4d8',24,26),label('西 W','#c0d4d8',24,26),label('北 N','#c0d4d8',24,26),label('南 S','#c0d4d8',24,26),label('天頂','#93b8c0',24,26)];
   const equator=line(circle(),'#90a6d8',.3);
   const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
   const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',12);l.userData.houseNumber=i+1;return l;});
-  const ascL=label('ASC','#f2c386',28,32),mcL=label('MC','#b6bceb',28,32);
+  const ascL=label('ASC','#f2c386',24,26),mcL=label('MC','#b6bceb',24,26);
   const navigationLabels=[...directions,ascL,mcL];
   const selectionGeo=new THREE.RingGeometry(8,9,32),selectionMat=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:false});
   const selection=new THREE.Mesh(selectionGeo,selectionMat);world.add(selection);disposable.push(selectionGeo,selectionMat);
@@ -182,7 +182,7 @@ export default function Sky(props:Props){
    const viewHeight=Math.max(1,host?.clientHeight??660),cameraInverse=activeCamera.matrixWorldInverse;
    activeCamera.updateMatrixWorld();
    const unitsPerPixel=(position:THREE.Vector3)=>ground?2*Math.max(1,-position.clone().applyQuaternion(world.quaternion).applyMatrix4(cameraInverse).z)*Math.tan(eye.fov*DEG/2)/viewHeight:(cam.top-cam.bottom)/(viewHeight*cam.zoom);
-   navigationLabels.forEach(l=>{const unit=unitsPerPixel(l.position),height=Math.min(44,Math.max(l.userData.minPixels,l.userData.labelSize/unit))*unit;l.scale.set(height*3.2,height,1);});
+   navigationLabels.forEach(l=>{const unit=unitsPerPixel(l.position),height=Math.min(32,Math.max(l.userData.minPixels,l.userData.labelSize/unit))*unit;l.scale.set(height*3.2,height,1);});
    nodes.forEach(n=>{const unit=unitsPerPixel(n.mesh.position),size=Math.max(1,Math.min(1.8,8*unit/(2*n.mesh.userData.radius)));n.mesh.scale.setScalar(size*(p.selected===n.mesh.userData.id?1.5:1));});
    starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
