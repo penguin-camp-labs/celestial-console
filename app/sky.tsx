@@ -4,14 +4,14 @@ import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLYPHS,DEG,wrap} from '@/lib/engine.mjs';
-import {houseCusps} from '@/lib/houses.mjs';
+import {houseCusps,houseBoundaryCurves} from '@/lib/houses.mjs';
 import {PlaybackInterpolator} from '@/lib/playback.mjs';
 import {observerMatrix,topocentricDirection} from '@/lib/observer.mjs';
 import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
 import {themeAppearance,inkColor,aspectInkColor,bodyInkColor} from '@/lib/theme.mjs';
-type Props={locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+type Props={gridMode?:string;locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -78,6 +78,8 @@ export default function Sky(props:Props){
   const directions=[label('東 E','#c0d4d8',24,26),label('西 W','#c0d4d8',24,26),label('北 N','#c0d4d8',24,26),label('南 S','#c0d4d8',24,26),label('天頂','#93b8c0',24,26)];
   const equator=line(circle(),'#90a6d8',.3);
   const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
+  const divisionLines=Array.from({length:12},(_,i)=>{const l=line(Array.from({length:129},()=>new THREE.Vector3()),i%3===0?'#7596a1':'#315562',.23);l.userData.houseBoundary=i+1;return l;});
+  let divisionFrame:any=null,divisionSystem='';
   const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',12);l.userData.houseNumber=i+1;return l;});
   const ascL=label('ASC','#f2c386',24,26),mcL=label('MC','#b6bceb',24,26);
   const navigationLabels=[...directions,ascL,mcL];
@@ -170,9 +172,12 @@ export default function Sky(props:Props){
    trailLines.forEach((l,i)=>{const trail=c.pointTrails?.find((t:any)=>t.id===l.userData.trail);l.visible=!!p.trails&&!!trail;if(!trail)return;const points:THREE.Vector3[]=[];for(let j=1;j<trail.positions.length;j++){const a=trail.positions[j-1],b=trail.positions[j];if(!a||!b||Math.abs(((b[0]-a[0]+540)%360)-180)>60){points.push(new THREE.Vector3(),new THREE.Vector3());continue;}points.push(v(a[0],0,231+i*3-27*morph),v(b[0],0,231+i*3-27*morph));}updateLine(l,points);});
 
    const showHouses=p.flat?(p.houses2d??true):p.houses;
-   if(showHouses&&(c!==houseFrame||p.houseSystem!==houseMode)){houseFrame=c;houseMode=p.houseSystem;houseResult=houseCusps(c,p.houseSystem);}
+   const showDivision=p.gridMode==='houses'&&morph<.995;
+   if((showHouses||showDivision)&&(c!==houseFrame||p.houseSystem!==houseMode)){houseFrame=c;houseMode=p.houseSystem;houseResult=houseCusps(c,p.houseSystem);}
+   if(showDivision&&(c!==divisionFrame||p.houseSystem!==divisionSystem)){divisionFrame=c;divisionSystem=p.houseSystem;const curves=houseBoundaryCurves(c,p.houseSystem,houseResult);curves.forEach((points:number[][],i:number)=>updateLine(divisionLines[i],points.map((p:number[])=>new THREE.Vector3(p[0]*218,p[2]*218,-p[1]*218))));}
+   divisionLines.forEach((l,i)=>{l.visible=showDivision&&houseResult.available;(l.material as THREE.LineBasicMaterial).opacity=(i%3===0?(bright?.30:.40):(bright?.14:.23))*(1-morph);});
    houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=bright?.65+.2*morph:.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
-   ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses;mcL.visible=p.horizon||showHouses;
+   ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses||showDivision;mcL.visible=p.horizon||showHouses||showDivision;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
    if(minute!==starMinute){starMinute=minute;const positions=starPositions(minute*60000);starLayers.forEach(({points,entries})=>{const attr=points.geometry.getAttribute('position') as THREE.BufferAttribute;entries.forEach((s,i)=>{const v=positions[s.index];attr.setXYZ(i,v[0]*325,v[1]*325,v[2]*325);});attr.needsUpdate=true;points.geometry.computeBoundingSphere();});}

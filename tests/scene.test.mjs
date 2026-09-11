@@ -178,4 +178,11 @@ await test('house changes render reference cusps without resetting the camera',a
  props={...props,houseSystem:'campanus',flat:false};await render();assert.ok(lines.every(l=>l.visible));
  await act(async()=>root.unmount());
 });
+
+await test('sphere house divisions follow the selected system and disappear in 2D or off mode',async()=>{
+ const root=createRoot(document.getElementById('root')),time=Date.UTC(2026,8,11);let props={chart:{...calculate(time,35,135),time,latitude:35,longitude:135},flat:false,aspects:false,grid:false,gridMode:'houses',horizon:true,houses:false,houseSystem:'campanus',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(performance.now()));};await render();const lines=[];globalThis.__scene.traverse(o=>{if(o.userData.houseBoundary)lines.push(o);});assert.equal(lines.length,12);assert.ok(lines.every(l=>l.visible));const camera=globalThis.__camera,before=Array.from(lines[1].geometry.attributes.position.array);
+ props={...props,houseSystem:'placidus'};await render();assert.equal(globalThis.__camera,camera);assert.notDeepEqual(Array.from(lines[1].geometry.attributes.position.array),before);
+ props={...props,gridMode:'off'};await render();assert.ok(lines.every(l=>!l.visible));props={...props,gridMode:'houses',flat:true};await render();assert.ok(lines.every(l=>!l.visible));await act(async()=>root.unmount());
+});
 dom.window.close();
