@@ -202,4 +202,14 @@ await test('zoomed 3D fits the full 2D chart and restores the 3D zoom on return'
  viewportWidth=1000;viewportHeight=660;
 });
 
+
+await test('far-side mode follows the camera and is disabled in 2D and ground view; house numbers stay readable',async()=>{
+ const root=createRoot(document.getElementById('root'));let props={chart:calculate(Date.UTC(2026,8,10)),dimBack:false,flat:false,aspects:true,grid:true,horizon:true,houses:true,houseSystem:'equal',selected:null,onSelect(){},reset:0,reduced:true,onFps(){},onFlat(){}};
+ let tick=1000;const render=async()=>{await act(async()=>root.render(createElement(Sky,props)));await act(async()=>globalThis.__animate(tick+=20));};await render();const camera=globalThis.__camera;
+ let body;const numbers=[];globalThis.__scene.traverse(o=>{if(o.userData.id==='Sun')body=o;if(o.userData.houseNumber)numbers.push(o);});
+ const shader={uniforms:{},vertexShader:'#include <fog_vertex>',fragmentShader:'#include <opaque_fragment>'};body.material.onBeforeCompile(shader);const u=shader.uniforms;assert.equal(u.hemisphereAmount.value,0);
+ props={...props,dimBack:true};await render();assert.equal(u.hemisphereAmount.value,1);assert.ok(u.hemisphereDirection.value.distanceTo(camera.getWorldDirection(new Vector3()).negate())<1e-8);
+ camera.position.set(760,0,0);await render();assert.ok(u.hemisphereDirection.value.x>.99,'dimming follows rotated camera');assert.equal(numbers.length,12);for(const l of numbers){const pixels=l.scale.y*viewportHeight*camera.zoom/(camera.top-camera.bottom);assert.ok(pixels>=28&&pixels<=32);assert.ok(l.material.opacity<=.6);}
+ props={...props,flat:true};await render();assert.equal(u.hemisphereAmount.value,0);props={...props,flat:false,observer:true};await render();assert.equal(u.hemisphereAmount.value,0);props={...props,observer:false,dimBack:false};await render();assert.equal(u.hemisphereAmount.value,0);await act(async()=>root.unmount());
+});
 dom.window.close();

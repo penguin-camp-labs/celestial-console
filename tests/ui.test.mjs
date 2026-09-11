@@ -199,12 +199,12 @@ await test('house selector retains the system and explains polar Placidus failur
 await test('display preferences round-trip independently of birth data and preserve Lilith visibility when switching type',async()=>{
  localStorage.clear();
  const {defaultPreferences}=await import('../lib/preferences.mjs');
- const initial={...defaultPreferences(),theme:'light',speed:7,houseSystem:'campanus',houses:true,minor:true,compound:true,asteroids:['Ceres'],lilithType:'mean'};
+ const initial={...defaultPreferences(),dimBack:true,theme:'light',speed:7,houseSystem:'campanus',houses:true,minor:true,compound:true,asteroids:['Ceres'],lilithType:'mean'};
  initial.aspectSettings[30]={enabled:false,orb:1.5};initial.patternTypes=['yod'];
  localStorage.setItem('celestial.preferences.v1',JSON.stringify(initial));
  root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush(80);
  const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- assert.equal(globalThis.__skyProps.theme,'light');assert.equal(globalThis.__skyProps.houseSystem,'campanus');assert.equal(globalThis.__skyProps.houses,true);assert.match(byLabel('再生速度').textContent,/1週/);assert.equal(globalThis.__skyProps.playing,false);
+ assert.equal(globalThis.__skyProps.dimBack,true);assert.equal(globalThis.__skyProps.theme,'light');assert.equal(globalThis.__skyProps.houseSystem,'campanus');assert.equal(globalThis.__skyProps.houses,true);assert.match(byLabel('再生速度').textContent,/1週/);assert.equal(globalThis.__skyProps.playing,false);
  assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
  await choose('テーマ','sky');await click(byLabel('3Dハウス線'));await click(document.querySelector('.network-button'));
  assert.equal(byLabel('セミセクスタイルのオーブ').value,'1.5');assert.equal(byLabel('セミセクスタイル 30°').getAttribute('aria-checked'),'false');
@@ -225,7 +225,7 @@ await test('English localization covers the chart, all dialogs, errors and store
  const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
  const noJapanese=(element)=>{const text=element.textContent.replaceAll('日本語','');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/.test(text),'Untranslated text: '+text.match(/.{0,35}[\u3040-\u30ff\u3400-\u9fff].{0,65}/)?.[0]);};
  const time=globalThis.__skyProps.chart.time;await choose('Language','en');assert.equal(document.documentElement.lang,'en');assert.equal(globalThis.__skyProps.chart.time,time);assert.equal(globalThis.__skyProps.locale,'en');assert.ok(document.querySelector('.planet-table').textContent.includes('Sun'));noJapanese(document.querySelector('main'));
- await click(byLabel('Display settings'));noJapanese(document.querySelector('.settings-dialog'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
+ await click(byLabel('Display settings'));noJapanese(document.querySelector('.settings-dialog'));await click(byLabel('Dim the far side'));assert.equal(globalThis.__skyProps.dimBack,true);await click(byLabel('Dim the far side'));assert.equal(globalThis.__skyProps.dimBack,false);await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
  await click(document.querySelector('.network-button'));noJapanese(document.querySelector('.network-dialog'));assert.equal(byLabel('Lilith type').options[0].textContent,'True position');assert.equal(byLabel('Lilith type').options[1].textContent,'Mean position');
  await click(byLabel('North & South Nodes'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'||b.id==='SouthNode'));await click(byLabel('North & South Nodes'));assert.equal(globalThis.__skyProps.chart.bodies.filter(b=>b.id==='NorthNode'||b.id==='SouthNode').length,2);
  await choose('Lilith type','mean');assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);

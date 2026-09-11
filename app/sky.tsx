@@ -1,4 +1,5 @@
 'use client';
+import {configureDepthDimming} from '@/lib/depth-dimming.mjs';
 import {t as tr} from './use-locale';
 import {useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
@@ -11,7 +12,7 @@ import {edgeKey} from '@/lib/aspects.mjs';
 import {spherePoint,morphPoint} from '@/lib/geometry.mjs';
 import {BRIGHT_STARS,starPositions} from '@/lib/stars.mjs';
 import {themeAppearance,inkColor,aspectInkColor,bodyInkColor} from '@/lib/theme.mjs';
-type Props={gridMode?:string;locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
+type Props={dimBack?:boolean;gridMode?:string;locale?:string;theme?:string;focus?:boolean;autoRotate?:boolean;playing?:boolean;smoothPlayback?:boolean;houses2d?:boolean;observer?:boolean;showBelowHorizon?:boolean;level?:number;heading?:number;headings?:number;nodeOrbit?:boolean;primeVertical?:boolean;trails?:boolean;chart:any;flat:boolean;aspects:boolean;grid:boolean;horizon:boolean;houses:boolean;houseSystem:string;selected:string|null;onSelect:(id:string|null)=>void;reset:number;reduced:boolean;onFps:(n:number)=>void;onFlat:()=>void;};
 export default function Sky(props:Props){
  const mount=useRef<HTMLDivElement>(null),live=useRef(props);live.current=props;
  const [failure,setFailure]=useState('');
@@ -22,6 +23,7 @@ export default function Sky(props:Props){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.setClearColor(0x060c12,0);
   renderer.domElement.setAttribute('aria-label',tr('天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。'));
   renderer.domElement.tabIndex=0;host.appendChild(renderer.domElement);
+  const depthUniforms={amount:{value:0},direction:{value:new THREE.Vector3(0,0,1)}};
   const scene=new THREE.Scene(),world=new THREE.Group();scene.add(world);
   const cam=new THREE.OrthographicCamera(-400,400,300,-300,.1,4000);cam.position.copy(live.current.flat?new THREE.Vector3(.001,750,0):new THREE.Vector3(0,0,760));cam.up.set(0,1,0);
   const controls=new OrbitControls(cam,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.08;controls.enablePan=false;controls.minZoom=.65;controls.maxZoom=2.1;controls.minPolarAngle=.005;controls.maxPolarAngle=Math.PI-.005;
@@ -46,10 +48,10 @@ export default function Sky(props:Props){
   const redrawLabels:(()=>void)[]=[];let labelsDisposed=false;
   let labelLocale=live.current.locale;
   const refreshLabels=()=>{if(!labelsDisposed)redrawLabels.forEach(draw=>draw());};
-  document.fonts?.load('400 44px "BIZ UDPGothic"','東西南北天頂').then(refreshLabels).catch(()=>{});
+  if(document.fonts)Promise.all([document.fonts.load('400 44px "BIZ UDPGothic"','東西南北天頂'),document.fonts.load('400 44px "Source Code Pro"','ASC MC 123'),document.fonts.load('400 40px "Zodiac Symbols"',GLYPHS.join(''))]).then(refreshLabels).catch(()=>{});
   function label(text:string,color:string,size=24,minPixels=0){
    const c=document.createElement('canvas');c.width=256;c.height=80;
-   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' Consolas, "Courier New", "BIZ UDPGothic", monospace':' "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(tr(text),128,40,244);
+   const ctx=c.getContext('2d')!;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(minPixels?'400 44px':'40px')+(minPixels||/^[0-9]+$/.test(text)?' "Source Code Pro", "BIZ UDPGothic", monospace':' "Zodiac Symbols", "Source Code Pro", "Segoe UI Symbol", "BIZ UDPGothic", sans-serif');ctx.fillStyle='#ffffff';ctx.fillText(tr(text),128,40,244);
    const tex=new THREE.CanvasTexture(c),mat=new THREE.SpriteMaterial({map:tex,color,transparent:true,depthTest:false,depthWrite:false});
    redrawLabels.push(()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillText(tr(text),128,40,244);tex.needsUpdate=true;});
    mat.userData.themeColor=color;const sprite=new THREE.Sprite(mat);sprite.userData.minPixels=minPixels;sprite.userData.labelSize=size;sprite.scale.set(size*3.2,size,1);world.add(sprite);disposable.push(tex,mat);return sprite;
@@ -80,7 +82,7 @@ export default function Sky(props:Props){
   const houseLines=Array.from({length:12},(_,i)=>{const l=line([v(0,0,18),v(0,0,236)],i%3===0?'#b2d6db':'#809ca9',.35);l.userData.house=i+1;return l;});
   const divisionLines=Array.from({length:12},(_,i)=>{const l=line(Array.from({length:129},()=>new THREE.Vector3()),i%3===0?'#7596a1':'#315562',.23);l.userData.houseBoundary=i+1;l.geometry.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(129*4).fill(1),4));(l.material as THREE.LineBasicMaterial).vertexColors=true;return l;});
   let divisionFrame:any=null,divisionSystem='';
-  const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',12);l.userData.houseNumber=i+1;return l;});
+  const houseLabels=Array.from({length:12},(_,i)=>{const l=label(String(i+1),'#a7c1cb',22,28);l.userData.houseNumber=i+1;return l;});
   const ascL=label('ASC','#f2c386',24,26),mcL=label('MC','#b6bceb',24,26);
   const polarLabels=[label('周極域','#71989c',18,22),label('周極域','#71989c',18,22)];polarLabels.forEach(l=>l.userData.circumpolar=true);
   const navigationLabels=[...directions,ascL,mcL,...polarLabels];
@@ -180,7 +182,7 @@ export default function Sky(props:Props){
    if(showDivision&&(c!==divisionFrame||p.houseSystem!==divisionSystem)){divisionFrame=c;divisionSystem=p.houseSystem;const curves=houseBoundaryCurves(c,p.houseSystem,houseResult);curves.forEach((points:number[][],i:number)=>{const l=divisionLines[i];updateLine(l,points.map((p:number[])=>new THREE.Vector3(p[0]*218,p[2]*218,-p[1]*218)));const colors=l.geometry.getAttribute('color') as THREE.BufferAttribute;for(let k=0;k<129;k++){const a=fadePolar?Math.min(1,k/8,(128-k)/8):1;colors.setW(k,a*a*(3-2*a));}colors.needsUpdate=true;});}
    divisionLines.forEach((l,i)=>{l.visible=showDivision&&houseResult.available;(l.material as THREE.LineBasicMaterial).opacity=(i%3===0?(bright?.30:.40):(bright?.14:.23))*(1-morph);});
    polarLabels.forEach((l,i)=>{const sign=i===0?1:-1;l.position.set(0,sign*242*Math.cos(c.eps*DEG),-sign*242*Math.sin(c.eps*DEG));l.visible=showDivision&&houseResult.available&&fadePolar&&!(hideBelow&&l.position.clone().applyQuaternion(world.quaternion).y<0);l.material.opacity=.8*(1-morph);});
-   houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=bright?.65+.2*morph:.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
+   houseLines.forEach((l,i)=>{const visible=showHouses&&houseResult.available;l.visible=visible;houseLabels[i].visible=visible;houseLabels[i].material.opacity=bright?.6:.55;if(!visible)return;const cusp=houseResult.cusps[i];updateLine(l,[v(cusp,0,30),v(cusp,0,236)]);(l.material as THREE.LineBasicMaterial).opacity=bright?.65+.2*morph:.25+.4*morph;houseLabels[i].position.copy(v(houseResult.centres[i],0,164));});
    ascL.position.copy(v(c.asc,0,310));mcL.position.copy(v(c.mc,0,310));ascL.visible=p.horizon||showHouses||showDivision;mcL.visible=p.horizon||showHouses||showDivision;
    const selected=nodes.find(n=>n.mesh.visible&&n.mesh.userData.id===p.selected);selection.visible=!!selected;if(selected){selection.position.copy(selected.mesh.position);selection.quaternion.copy(world.quaternion).invert().multiply((ground?eye:cam).quaternion);}
    const minute=Math.floor((Number.isFinite(c.time)?c.time:Date.now())/60000);
@@ -191,14 +193,15 @@ export default function Sky(props:Props){
    if(lastTheme!==themeKey){lastTheme=themeKey;if(host?.parentElement)host.parentElement.dataset.skyScheme=bright?'light':'dark';}
    skyDome.visible=theme==='sky'&&morph<.995;skyDome.position.copy(activeCamera.position);
    skyMaterial.uniforms.zenith.value.set(appearance.zenith);skyMaterial.uniforms.horizon.value.set(appearance.horizon);skyMaterial.uniforms.ground.value.set(appearance.ground);skyMaterial.uniforms.sunDirection.value.fromArray(appearance.direction);skyMaterial.uniforms.glow.value=appearance.glow;skyMaterial.uniforms.groundView.value=ground?1:0;
+   depthUniforms.amount.value=p.dimBack&&!ground?1-morph:0;activeCamera.getWorldDirection(depthUniforms.direction.value).negate();
    // Update colour, never recreate geometry/camera when switching themes.
-   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){mat.color.set(mat.userData.bodyMaterial?mat.userData.themeColor:mat.userData.bodyGlyph?bodyInkColor(mat.userData.themeColor,bright):o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright):inkColor(mat.userData.themeColor,bright));}});
+   world.traverse(o=>{const mat=(o as THREE.Mesh).material as THREE.MeshBasicMaterial|undefined;if(mat?.userData.themeColor){configureDepthDimming(mat,depthUniforms);mat.color.set(mat.userData.bodyMaterial?mat.userData.themeColor:mat.userData.bodyGlyph?bodyInkColor(mat.userData.themeColor,bright):o.userData.aspect?aspectInkColor(mat.userData.themeColor,bright):inkColor(mat.userData.themeColor,bright));}});
    keyLight.position.set(-350,450,650).applyQuaternion(activeCamera.quaternion);fillLight.position.set(400,-100,-250).applyQuaternion(activeCamera.quaternion);
    const viewHeight=Math.max(1,host?.clientHeight??660),cameraInverse=activeCamera.matrixWorldInverse;
    activeCamera.updateMatrixWorld();
    const unitsPerPixel=(position:THREE.Vector3)=>ground?2*Math.max(1,-position.clone().applyQuaternion(world.quaternion).applyMatrix4(cameraInverse).z)*Math.tan(eye.fov*DEG/2)/viewHeight:(cam.top-cam.bottom)/(viewHeight*cam.zoom);
    if(labelLocale!==p.locale){labelLocale=p.locale;refreshLabels();renderer.domElement.setAttribute('aria-label',tr('天球。ドラッグで回転、ホイールで拡大。天体をクリックして選択。'));}
-   navigationLabels.forEach(l=>{const unit=unitsPerPixel(l.position),height=Math.min(32,Math.max(l.userData.minPixels,l.userData.labelSize/unit))*unit;l.scale.set(height*3.2,height,1);});
+   [...navigationLabels,...houseLabels].forEach(l=>{const unit=unitsPerPixel(l.position),height=Math.min(32,Math.max(l.userData.minPixels,l.userData.labelSize/unit))*unit;l.scale.set(height*3.2,height,1);});
    nodes.forEach(n=>{const unit=unitsPerPixel(n.mesh.position),size=Math.max(1,Math.min(1.8,8*unit/(2*n.mesh.userData.radius)));n.mesh.scale.setScalar(size*(p.selected===n.mesh.userData.id?1.5:1));});
    starLayers.forEach(({points})=>{(points.material as THREE.PointsMaterial).opacity=.3*(p.focus?1:.85)*(1-morph)*(theme==='sky'?appearance.stars:1);(points.material as THREE.PointsMaterial).color.set(theme==='light'?'#385568':'#d5e6f2');});renderer.clippingPlanes=hideBelow?[horizonClip]:[];renderer.render(scene,activeCamera);frames++;if(now-fpsTime>1000){p.onFps(Math.round(frames*1000/(now-fpsTime)));frames=0;fpsTime=now;}
   }
