@@ -104,7 +104,25 @@ html[data-scheme=light] .orb-meter i{opacity:1}
 .panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 0;margin:0 0 10px;border:0;background:transparent!important;color:var(--foreground);text-align:left}
 .panel-heading:disabled{opacity:1;cursor:default}.panel-count{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted-foreground)}.panel-heading:disabled svg{display:none}.expanded{transform:rotate(90deg)}
 .data-section+[class=data-section]{margin-top:20px}.data-section>[hidden]{display:none!important}
-.telemetry>.network-button{width:100%;margin:0 0 12px}
+.telemetry>.network-button{width:100%;margin:0 0 12px}/* iPad and other tablet widths: give the chart a full row, then flow controls below it so ground-view actions never sit on top of the canvas. */
+@media (min-width:701px) and (max-width:1200px){
+ .observatory:not(.is-live) .workspace{display:block}
+ .observatory:not(.is-live) .stage{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto auto auto auto;height:auto;min-height:0;max-height:none;padding:18px 20px 0;gap:12px 10px;overflow:visible}
+ .observatory:not(.is-live) .stage:before,.observatory:not(.is-live) .stage:after{display:none}
+ .observatory:not(.is-live) .view-toggle{position:static;grid-row:1;grid-column:1/-1;display:flex;width:100%;margin:0;max-width:none}
+ .observatory:not(.is-live) .view-toggle button{flex:1;min-height:46px;padding:9px 8px;font-size:15px;white-space:nowrap}
+ .observatory:not(.is-live) .sky-host{position:relative;inset:auto;grid-row:2;grid-column:1/-1;width:100%;height:clamp(420px,65vw,640px);min-width:0}
+ .observatory:not(.is-live) .observer-tools{position:static;grid-row:3;grid-column:1/-1;display:flex;gap:8px;max-width:100%;padding:0;align-self:start}
+ .observatory:not(.is-live) .scene-tools{position:static;grid-row:4;grid-column:2;align-self:center;gap:8px}
+ .observatory:not(.is-live) .chart-options .axis-readout{position:static;grid-row:4;grid-column:1;align-self:center;max-width:100%;margin:0;padding:0;pointer-events:auto}
+ .observatory:not(.is-live) .chart-options .scene-legend{position:static;grid-row:5;grid-column:1/-1;max-width:100%;margin:0;padding:0 0 12px;pointer-events:auto}
+ .observatory:not(.is-live) .telemetry{border-left:0;border-top:1px solid #263844;height:auto;min-height:0;max-height:none;padding:18px 20px 16px}
+ .observatory:not(.is-live) .mobile-chart-toggle{display:none}
+ .observatory:not(.is-live) .chart-options{display:contents}
+ .observatory:not(.is-live) .chart-options .observer-tools button,.observatory:not(.is-live) .chart-options .observer-tools .toggle-row{min-height:42px;font-size:14px}
+ .observatory:not(.is-live) .chart-options .house-control{min-height:42px;font-size:14px}
+ .observatory:not(.is-live) .chart-options .house-control select{font-size:15px;max-width:210px;min-height:38px}
+}
 @media(max-width:700px){
  .observatory:not(.is-live) .stage{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto auto auto;height:auto;min-height:0;max-height:none;padding:12px 12px 0;gap:10px 8px;overflow:visible}
  .observatory:not(.is-live) .stage:before,.observatory:not(.is-live) .stage:after,.observatory:not(.is-live) .scene-heading,.observatory:not(.is-live) .scene-caption{display:none}
