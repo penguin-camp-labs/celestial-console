@@ -1,177 +1,1982 @@
 'use client';
-import {t as tr,useLocale,setLocale} from './use-locale';
-import {useRootEvent,useRootSnapshot} from './root-context';
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Play,Pause,SkipBack,SkipForward,RotateCcw,SlidersHorizontal,Info,ShieldCheck,ArrowRight,ChevronRight,Maximize2,Clock3} from 'lucide-react';
-import {Slider} from '@/components/ui/slider';
-import {Switch} from '@/components/ui/switch';
-import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
-import {Dialog,DialogTrigger,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {Table,TableHeader,TableRow,TableHead,TableBody,TableCell} from '@/components/ui/table';
+import { t as tr, useLocale, setLocale } from './use-locale';
+import { useRootEvent, useRootSnapshot } from './root-context';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  RotateCcw,
+  SlidersHorizontal,
+  Info,
+  ShieldCheck,
+  ArrowRight,
+  ChevronRight,
+  Clock3,
+} from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
 import Sky from './sky';
 import TimelineClock from './timeline-clock';
-import {HOUSE_SYSTEMS,houseCusps} from '@/lib/houses.mjs';
-import {THEMES,themeAppearance,inkColor,aspectInkColor,bodyInkColor} from '@/lib/theme.mjs';
+import { HOUSE_SYSTEMS, houseCusps } from '@/lib/houses.mjs';
+import {
+  THEMES,
+  themeAppearance,
+  inkColor,
+  aspectInkColor,
+  bodyInkColor,
+} from '@/lib/theme.mjs';
 import LocationButton from './location-button';
-import {sensitivePoints,pointTrails} from '@/lib/observer.mjs';
+import { sensitivePoints, pointTrails } from '@/lib/observer.mjs';
 import BirthInput from './birth-input';
-import {offsetLabel} from '@/lib/timezone.mjs';
-import NetworkSettings from './network-settings';
-import {ALL_ASPECTS,MAJOR_ASPECTS,PATTERNS,defaultAspectSettings,aspectEdges,findPatterns,edgeKey} from '@/lib/aspects.mjs';
-import {ASTEROIDS,loadAsteroids,asteroidBodies} from '@/lib/asteroids.mjs';
-import {DAY,MIN_TIME,MAX_TIME,BODIES,ASPECTS,calculate,clampTime,validTime,localInput,parseInput,signPosition,validateSaved} from '@/lib/engine.mjs';
-import {PREFERENCES_STORAGE,validatePreferences} from '@/lib/preferences.mjs';
-const STORAGE='celestial.observatory.v1';
-const PLACES=[{id:'tokyo',name:'東京',lat:35.6812,lon:139.7671},{id:'osaka',name:'大阪',lat:34.6937,lon:135.5023},{id:'sapporo',name:'札幌',lat:43.0618,lon:141.3545},{id:'london',name:'ロンドン',lat:51.5074,lon:-.1278},{id:'ny',name:'ニューヨーク',lat:40.7128,lon:-74.006},{id:'sydney',name:'シドニー',lat:-33.8688,lon:151.2093}];
-function Choice({label,value,onChange,items}: {label:string;value:string;onChange:(v:string)=>void;items:{value:string;label:string}[]}){
- return <Select value={value} onValueChange={v=>v!==null&&onChange(String(v))}><SelectTrigger aria-label={tr(label)} className="choice"><SelectValue>{tr(items.find(i=>i.value===value)?.label??value)}</SelectValue></SelectTrigger><SelectContent>{tr(items.map(i=><SelectItem key={i.value} value={i.value}>{tr(i.label)}</SelectItem>))}</SelectContent></Select>;
+import { offsetLabel } from '@/lib/timezone.mjs';
+import NetworkSettings, { Toggle } from './network-settings';
+import {
+  ALL_ASPECTS,
+  MAJOR_ASPECTS,
+  PATTERNS,
+  defaultAspectSettings,
+  aspectEdges,
+  findPatterns,
+  edgeKey,
+} from '@/lib/aspects.mjs';
+import { loadAsteroids, asteroidBodies } from '@/lib/asteroids.mjs';
+import {
+  DAY,
+  MIN_TIME,
+  MAX_TIME,
+  calculate,
+  clampTime,
+  localInput,
+  parseInput,
+  signPosition,
+  validateSaved,
+} from '@/lib/engine.mjs';
+import {
+  PREFERENCES_STORAGE,
+  validatePreferences,
+} from '@/lib/preferences.mjs';
+const STORAGE = 'celestial.observatory.v1';
+const PLACES = [
+  { id: 'tokyo', name: '東京', lat: 35.6812, lon: 139.7671 },
+  { id: 'osaka', name: '大阪', lat: 34.6937, lon: 135.5023 },
+  { id: 'sapporo', name: '札幌', lat: 43.0618, lon: 141.3545 },
+  { id: 'london', name: 'ロンドン', lat: 51.5074, lon: -0.1278 },
+  { id: 'ny', name: 'ニューヨーク', lat: 40.7128, lon: -74.006 },
+  { id: 'sydney', name: 'シドニー', lat: -33.8688, lon: 151.2093 },
+];
+function Choice({
+  label,
+  value,
+  onChange,
+  items,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  items: { value: string; label: string }[];
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => v !== null && onChange(String(v))}
+    >
+      <SelectTrigger aria-label={tr(label)} className="choice">
+        <SelectValue>
+          {tr(items.find((i) => i.value === value)?.label ?? value)}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {items.map((i) => (
+          <SelectItem key={i.value} value={i.value}>
+            {tr(i.label)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
-function Toggle({label,value,onChange}:{label:string;value:boolean;onChange:(v:boolean)=>void}){return <label className="toggle-row"><span>{tr(label)}</span><Switch checked={value} onCheckedChange={onChange} aria-label={tr(label)}/></label>;}
-function FoldSection({id,title,count,compact,children}:{id:string;title:string;count:string;compact:boolean;children:React.ReactNode}){
- const [open,setOpen]=useState(false),expanded=!compact||open;
- return <section className="data-section"><button className="panel-heading" aria-label={tr(title+'の表示切り替え')} aria-expanded={expanded} aria-controls={id} disabled={!compact} onClick={()=>setOpen(v=>!v)}><span className="eyebrow">{tr(title)}</span><span className="panel-count">{tr(count)}<ChevronRight className={expanded?'expanded':''} size={17}/></span></button><div id={id} hidden={!expanded}>{tr(children)}</div></section>;
+function FoldSection({
+  id,
+  title,
+  count,
+  compact,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: string;
+  compact: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const expanded = !compact || open;
+  return (
+    <section className="data-section">
+      <button
+        className="panel-heading"
+        aria-label={tr(title + 'の表示切り替え')}
+        aria-expanded={expanded}
+        aria-controls={id}
+        disabled={!compact}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="eyebrow">{tr(title)}</span>
+        <span className="panel-count">
+          {tr(count)}
+          <ChevronRight className={expanded ? 'expanded' : ''} size={17} />
+        </span>
+      </button>
+      <div id={id} hidden={!expanded}>
+        {tr(children)}
+      </div>
+    </section>
+  );
 }
-export default function Home(){
- const locale=useLocale();
- const rootSnapshot=useRootSnapshot(),dispatchRoot=useRootEvent();
- useEffect(()=>{document.documentElement.lang=locale;document.querySelector('meta[name="description"]')?.setAttribute('content',locale==='en'?'Explore geocentric 2D and 3D horoscopes. No registration; calculations run on your device.':'登録不要、端末内で計算する2D / 3Dホロスコープ。');document.title=locale==='en'?'CELESTIAL — Celestial Horoscope':'CELESTIAL — 天球ホロスコープ';},[locale]);
- const [compact,setCompact]=useState(false),[chartToolsOpen,setChartToolsOpen]=useState(false);
- useEffect(()=>{const media=window.matchMedia('(max-width: 700px)');const update=()=>setCompact(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
- const [dimBack,setDimBack]=useState(false);
- const [theme,setTheme]=useState('dark'),[savePreferences,setSavePreferences]=useState(false),[lilithType,setLilithType]=useState('true');
- const [time,setTime]=useState(Date.UTC(2026,8,10)),[anchor,setAnchor]=useState(Date.UTC(2026,8,10)),[ready,setReady]=useState(false);
- const [offset,setOffset]=useState(540),[offsetDraft,setOffsetDraft]=useState('9'),[dateDraft,setDateDraft]=useState(''),[dirty,setDirty]=useState(false);
- const [latitude,setLatitude]=useState(35.6812),[longitude,setLongitude]=useState(139.7671),[latDraft,setLatDraft]=useState('35.6812'),[lonDraft,setLonDraft]=useState('139.7671');
- const [liveMode,setLiveMode]=useState(false),[liveTime,setLiveTime]=useState(Date.UTC(2026,8,10)),[autoRotate,setAutoRotate]=useState(true);
- const liveEntry=useRef<HTMLButtonElement>(null),liveExit=useRef<HTMLButtonElement>(null);
- const observationTime=liveMode?liveTime:time;
- const [playing,setPlaying]=useState(false),[speed,setSpeed]=useState(1),[direction,setDirection]=useState(1),[span,setSpan]=useState(30);
- const [showAspects,setShowAspects]=useState(true),[gridMode,setGridMode]=useState('grid'),[horizon,setHorizon]=useState(true),[houses,setHouses]=useState(false),[houses2d,setHouses2d]=useState(true),[smoothPlayback,setSmoothPlayback]=useState(true),[houseSystem,setHouseSystem]=useState('equal');
- const [showBelowHorizon,setShowBelowHorizon]=useState(true),[level,setLevel]=useState(0),[heading,setHeading]=useState(90),[headings,setHeadings]=useState(0),[pointIds,setPointIds]=useState(['NorthNode','SouthNode','Vertex','TrueLilith']),[nodeOrbit,setNodeOrbit]=useState(true),[primeVertical,setPrimeVertical]=useState(true),[trails,setTrails]=useState(false);
- const flat=rootSnapshot.view==='2d',observer=rootSnapshot.view==='ground';
- const [orb,setOrb]=useState(6),[selected,setSelected]=useState<string|null>(null),[reset,setReset]=useState(0),[fps,setFps]=useState(0),[reduced,setReduced]=useState(false),[persist,setPersist]=useState(false),[message,setMessage]=useState('');
- const [aspectSettings,setAspectSettings]=useState(defaultAspectSettings),[major,setMajor]=useState(true),[minor,setMinor]=useState(false),[compound,setCompound]=useState(false),[includePoints,setIncludePoints]=useState(true);
- const [patternTypes,setPatternTypes]=useState(PATTERNS.map(p=>p.id)),[patternFocus,setPatternFocus]=useState<string|null>(null),[asteroids,setAsteroids]=useState<string[]>([]),[ephemeris,setEphemeris]=useState<Float32Array|null>(null),[loading,setLoading]=useState(false),[ephemerisError,setEphemerisError]=useState(''),[retry,setRetry]=useState(0);
- useEffect(()=>{if(!asteroids.length){setLoading(false);return;}if(ephemeris)return;let cancelled=false;setLoading(true);setEphemerisError('');loadAsteroids().then((data:Float32Array)=>{if(!cancelled)setEphemeris(data);}).catch((e:Error)=>{if(!cancelled)setEphemerisError(e.message);}).finally(()=>{if(!cancelled)setLoading(false);});return()=>{cancelled=true;};},[asteroids.length,ephemeris,retry]);
- const networkSettings=<NetworkSettings settings={aspectSettings} setSettings={setAspectSettings} major={major} setMajor={setMajor} minor={minor} setMinor={setMinor} compound={compound} setCompound={setCompound} patterns={patternTypes} setPatterns={setPatternTypes} asteroids={asteroids} setAsteroids={setAsteroids} loading={loading} error={ephemerisError} retry={()=>setRetry(n=>n+1)}/>;
- const actionRef=useRef<(t:number)=>void>(()=>{}),timeRef=useRef(time);timeRef.current=time;
- const setInstant=useCallback((t:number)=>{setLiveMode(false);setPlaying(false);setTime(clampTime(t));setAnchor(clampTime(t));setDirty(false);setMessage('');},[]);
- actionRef.current=setInstant;
- useEffect(()=>{
-  let t=Date.now(),lat=35.6812,lon=139.7671,o=-new Date().getTimezoneOffset();
-  try{const raw=localStorage.getItem(STORAGE);if(raw){const saved=validateSaved(JSON.parse(raw));if(saved){({time:t,latitude:lat,longitude:lon,offset:o}=saved);setPersist(true);}else{localStorage.removeItem(STORAGE);setMessage('保存内容を読み込めなかったため、現在日時で開始しました。');}}}catch{setMessage('ブラウザ内の保存を利用できません。保存なしで使えます。');}
-  try{const raw=localStorage.getItem(PREFERENCES_STORAGE);if(raw){const saved=validatePreferences(JSON.parse(raw));if(saved){setDimBack(saved.dimBack);setLocale(saved.locale);setTheme(saved.theme);setSpeed(saved.speed);setDirection(saved.direction);setSpan(saved.span);setHouseSystem(saved.houseSystem);setLilithType(saved.lilithType);setOrb(saved.orb);setPointIds(saved.pointIds);setAsteroids(saved.asteroids);setPatternTypes(saved.patternTypes);setAspectSettings(saved.aspectSettings);setShowAspects(saved.showAspects);setGridMode(saved.gridMode);setHorizon(saved.horizon);setHouses(saved.houses);setHouses2d(saved.houses2d);setSmoothPlayback(saved.smoothPlayback);setShowBelowHorizon(saved.showBelowHorizon);setNodeOrbit(saved.nodeOrbit);setPrimeVertical(saved.primeVertical);setTrails(saved.trails);setMajor(saved.major);setMinor(saved.minor);setCompound(saved.compound);setIncludePoints(saved.includePoints);setSavePreferences(true);}else{localStorage.removeItem(PREFERENCES_STORAGE);setMessage('保存した表示設定を読み込めなかったため、初期設定で開始しました。');}}}catch{setMessage('表示設定の保存を読み込めませんでした。初期設定で使えます。');}
-  setTime(clampTime(t));setAnchor(clampTime(t));setLatitude(lat);setLongitude(lon);setLatDraft(String(lat));setLonDraft(String(lon));setOffset(o);setOffsetDraft(String(o/60));setReady(true);
-  const media=window.matchMedia('(prefers-reduced-motion: reduce)');setReduced(media.matches);const change=()=>setReduced(media.matches);media.addEventListener('change',change);
-  return()=>media.removeEventListener('change',change);
- },[]);
- useEffect(()=>{
-  if(!liveMode)return;
-  let interval:ReturnType<typeof setInterval>|undefined;
-  const tick=()=>setLiveTime(clampTime(Math.floor(Date.now()/1000)*1000));
-  const resume=()=>{if(interval!==undefined)clearInterval(interval);interval=undefined;if(!document.hidden){tick();interval=setInterval(tick,1000);}};
-  const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setLiveMode(false);requestAnimationFrame(()=>liveEntry.current?.focus());}};
-  resume();liveExit.current?.focus();document.addEventListener('visibilitychange',resume);document.addEventListener('keydown',escape);
-  return()=>{if(interval!==undefined)clearInterval(interval);document.removeEventListener('visibilitychange',resume);document.removeEventListener('keydown',escape);};
- },[liveMode]);
- useEffect(()=>{if(!dirty)setDateDraft(localInput(time,offset));},[time,offset,dirty]);
- useEffect(()=>{if(!ready||!persist)return;const id=setTimeout(()=>{try{localStorage.setItem(STORAGE,JSON.stringify({version:1,time,latitude,longitude,offset}));}catch{setPersist(false);setMessage('保存できませんでした。ブラウザの保存容量・設定を確認してください。');}},500);return()=>clearTimeout(id);},[time,latitude,longitude,offset,persist,ready]);
- useEffect(()=>{if(!ready||!savePreferences)return;try{localStorage.setItem(PREFERENCES_STORAGE,JSON.stringify({version:1,dimBack,locale,theme,speed,direction,span,houseSystem,lilithType,orb,pointIds,asteroids,patternTypes,aspectSettings,showAspects,gridMode,horizon,houses,houses2d,smoothPlayback,showBelowHorizon,nodeOrbit,primeVertical,trails,major,minor,compound,includePoints}));}catch{setSavePreferences(false);setMessage('表示設定を保存できませんでした。ブラウザの保存容量・設定を確認してください。');}},[ready,savePreferences,dimBack,locale,theme,speed,direction,span,houseSystem,lilithType,orb,pointIds,asteroids,patternTypes,aspectSettings,showAspects,gridMode,horizon,houses,houses2d,smoothPlayback,showBelowHorizon,nodeOrbit,primeVertical,trails,major,minor,compound,includePoints]);
- const togglePreferenceSave=(v:boolean)=>{setSavePreferences(v);if(!v){try{localStorage.removeItem(PREFERENCES_STORAGE);setMessage('保存した表示設定を削除しました。');}catch{setMessage('表示設定を削除できません。ブラウザのサイトデータ設定から削除してください。');}}};
- const toggleSave=(v:boolean)=>{setPersist(v);if(!v){try{localStorage.removeItem(STORAGE);setMessage('保存した日時・地点を削除しました。');}catch{setMessage('保存データを削除できません。ブラウザのサイトデータ設定から削除してください。');}}};
- useEffect(()=>{
-  if(!playing)return;let last=performance.now();
-  const id=setInterval(()=>{const now=performance.now(),dt=Math.min((now-last)/1000,.25);last=now;if(document.hidden)return;setTime(t=>{const next=clampTime(t+dt*DAY*speed*direction);if(next===MIN_TIME||next===MAX_TIME)setPlaying(false);return next;});},100);
-  const hidden=()=>{last=performance.now();};document.addEventListener('visibilitychange',hidden);
-  return()=>{clearInterval(id);document.removeEventListener('visibilitychange',hidden);};
- },[playing,speed,direction]);
- useEffect(()=>{if(playing&&Math.abs(time-anchor)>span*DAY)setAnchor(time);},[time,anchor,span,playing]);
- useEffect(()=>{
-  const context=(document as any).modelContext;if(!context?.registerTool)return;const lifecycle=new AbortController();
-  try{Promise.resolve(context.registerTool({name:'set_observation_time',description:'Set this local horoscope to an ISO 8601 time with explicit timezone. No data is sent or saved unless local saving was enabled in the UI.',inputSchema:{type:'object',properties:{datetime:{type:'string'}},required:['datetime'],additionalProperties:false},annotations:{readOnlyHint:false},async execute(input:any){
-   if(!input||Object.keys(input).length!==1||typeof input.datetime!=='string'||!/(Z|[+-]\d\d:\d\d)$/.test(input.datetime))throw Error('An ISO datetime with timezone is required.');
-   const match=input.datetime.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:\d{2})$/);if(!match)throw Error('Use a complete ISO datetime with timezone.');const zone=match[2],o=zone==='Z'?0:(zone[0]==='-'?-1:1)*(Number(zone.slice(1,3))*60+Number(zone.slice(4)));if(zone!=='Z'&&Number(zone.slice(4))>=60)throw Error('Invalid timezone offset.');const t=parseInput(match[1],o);actionRef.current(t);
-   await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
-   return {datetime:new Date(timeRef.current).toISOString(),storage:'local browser only'};
-  }},{signal:lifecycle.signal})).catch(()=>{});}catch{}
-  return()=>lifecycle.abort();
- },[]);
- const baseChart=useMemo(()=>calculate(observationTime,latitude,longitude),[observationTime,latitude,longitude]);
- const houseResult=useMemo(()=>houseCusps({...baseChart,latitude},houseSystem),[baseChart,latitude,houseSystem]);
- const appearance=useMemo(()=>themeAppearance(theme,baseChart),[theme,baseChart]);
- const uiAspectColor=(color:string)=>aspectInkColor(color,appearance.light);
- const uiColor=(color:string)=>inkColor(color,appearance.light);
- useEffect(()=>{
-  const root=document.documentElement;root.dataset.theme=theme;root.dataset.scheme=appearance.light?'light':'dark';root.classList.toggle('dark',!appearance.light);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',appearance.light?'#f2f6fa':'#060c12');
- },[theme,appearance.light]);
- const sensitive=useMemo(()=>sensitivePoints(observationTime,latitude,longitude,baseChart,lilithType),[observationTime,latitude,longitude,baseChart,lilithType]);
- const paths=useMemo(()=>trails&&!liveMode?pointTrails(observationTime,latitude,longitude):[],[trails,liveMode,observationTime,latitude,longitude]);
- const bodies=useMemo(()=>[...baseChart.bodies,...sensitive.points.filter(p=>pointIds.includes(p.id==='MeanLilith'?'TrueLilith':p.id)),...(ephemeris?asteroidBodies(asteroids,observationTime,ephemeris):[])],[baseChart,sensitive,pointIds,asteroids,observationTime,ephemeris]);
- const aspectBodies=useMemo(()=>includePoints?bodies:bodies.filter(b=>!('kind' in b)||b.kind!=='point'),[bodies,includePoints]);
- const aspectList=useMemo(()=>aspectEdges(aspectBodies,aspectSettings,{major,minor}),[aspectBodies,aspectSettings,major,minor]);
- const patterns=useMemo(()=>compound?findPatterns(aspectBodies,aspectSettings,patternTypes):[],[aspectBodies,aspectSettings,compound,patternTypes]);
- const focused=patterns.find(p=>p.id===patternFocus);
- const patternEdges=useMemo(()=>[...new Map((focused?[focused]:patterns).flatMap(p=>p.edges).map(e=>[edgeKey(e.a,e.b),{...e,color:'#f4d08a',pattern:true}])).values()],[focused,patterns]);
- const chart=useMemo(()=>({...baseChart,time:observationTime,latitude,longitude,bodies,aspects:aspectList,patternEdges,moonOrbit:sensitive.moonOrbit,pointTrails:paths}),[baseChart,observationTime,latitude,longitude,bodies,aspectList,patternEdges,sensitive,paths]);
- useEffect(()=>{if(selected&&!bodies.some(b=>b.id===selected))setSelected(null);},[bodies,selected]);
- const body=chart.bodies.find((b:any)=>b.id===selected),visibleAspects=chart.aspects.filter((a:any)=>!selected||a.a===selected||a.b===selected);
- const fpsUpdate=useCallback((v:number)=>setFps(v),[]);
- const utcLabel=offsetLabel(offset);
- const applyDate=(e:React.FormEvent)=>{e.preventDefault();try{const h=Number(offsetDraft);if(!offsetDraft.trim()||!Number.isFinite(h)||h < -12||h > 14||Math.abs(h*3600-Math.round(h*3600))>.00001)throw Error('UTC差は−12〜14時間で入力してください。');const o=Math.round(h*3600)/60,t=parseInput(dateDraft,o);setOffset(o);setInstant(t);}catch(e){setMessage((e as Error).message);}};
- const applyLocation=(e:React.FormEvent)=>{e.preventDefault();const lat=Number(latDraft),lon=Number(lonDraft);if(!latDraft.trim()||!lonDraft.trim()||!Number.isFinite(lat)||Math.abs(lat)>89||!Number.isFinite(lon)||Math.abs(lon)>180){setMessage('緯度は−89〜89°、経度は−180〜180°で入力してください。');return;}setLatitude(lat);setLongitude(lon);setMessage('観測地点を更新しました。');};
- const preset=PLACES.find(p=>p.lat===latitude&&p.lon===longitude)?.id??'custom';
- const resetNow=()=>setInstant(Date.now());
- const startLive=()=>{dispatchRoot({type:'LIVE_START'});setPlaying(false);setAutoRotate(true);setLiveTime(clampTime(Math.floor(Date.now()/1000)*1000));setLiveMode(true);};
- const stopLive=()=>{dispatchRoot({type:'LIVE_STOP'});setLiveMode(false);requestAnimationFrame(()=>liveEntry.current?.focus());};
- return <main className={liveMode?'observatory is-live':'observatory'}>
-  <header className="mast" hidden={liveMode}><a className="brand" href="/" aria-label={tr("CELESTIAL ホーム")}><span className="brand-mark">◎</span>CELESTIAL<span className="brand-sub">{tr("天球ホロスコープ")}</span></a><div className="mast-right"><label className="language-control"><span>Language</span><select aria-label="Language" value={locale} onChange={e=>{const value=e.target.value;dispatchRoot({type:'LOCALE_SET',payload:value});setLocale(value)}}><option value="ja">日本語</option><option value="en">English</option></select></label><label className="theme-control"><span>{tr("テーマ")}</span><select aria-label={tr("テーマ")} value={theme} onChange={e=>{const value=e.target.value;dispatchRoot({type:'THEME_SET',payload:value});setTheme(value)}}>{tr(THEMES.map(t=><option key={t.value} value={t.value}>{tr(t.label)}</option>))}</select></label><span className="status"><i/> LOCAL COMPUTATION</span><Dialog><DialogTrigger className="icon-button" aria-label={tr("使い方とプライバシー")}><Info size={19}/></DialogTrigger><DialogContent className="help-dialog"><DialogTitle>{tr("空を読むためのガイド")}</DialogTitle><DialogDescription>{tr("3Dと2Dは、同じ天体の配置を違う視点で表示しています。")}</DialogDescription><div className="help-copy"><p><strong>{tr("天球を探る")}</strong><br/>{tr("ドラッグで回転、ホイールまたはピンチで拡大。天体を選ぶと関連するアスペクトが強調されます。描画領域にフォーカスすると矢印キーで回転、＋／−で拡大縮小できます。")}</p><p><strong>2D ↔ 3D</strong><br/>{tr("3Dは観測地の地平線を水平面、天頂を上にした天球です。「地平線を水平に」で横からの視点に戻せます。「地上視点」は天球の内側から上下・東西南北を見渡せます。「地平線下も表示」は初期ONで、地面を透かして下側の天体も表示します。OFFで地平線より下を隠せます。地上描画は海抜0mの地表視差を反映し、大気差・地形は含みません。天体表とアスペクト判定は地球中心の値です。2Dでは黄緯を0°に投影し、ASCを左にした円形図になります。天体の大きさと陰影は見やすさのための模式表現で、実際の月相や表面の地形ではありません。惑星は球、感受点は菱形で表示します。背景の恒星22星はHipparcos星表の実座標を使い、固有運動・歳差・章動を反映します。年周光行差・年周視差・大気差は含みません。")}</p><p><strong>{tr("テーマ")}</strong><br/>{tr("ライト・ダーク・現地の空を切り替えられます。「現地の空」は選択中の地点・日時での太陽高度から、晴天の昼・薄明・夜を近似表示します。地上視点では地平線と太陽の方角に空の色が対応し、昼は背景の恒星が見えなくなります。天体マーカーとアスペクトは読み取り用に残ります。天候・月明かり・光害・大気の状態は含まず、実際の輝度を測定した表示ではありません。2Dでは読みやすい明暗の盤面に切り替わります。「今の星を眺める」でも選んだテーマが適用されます。")}</p><p><strong>{tr("計算条件")}</strong><br/>{tr("地球中心・トロピカル黄道。Astronomy Engineで太陽から冥王星までを計算します（目標精度は角度約1分）。追加8天体はNASA/JPL Horizonsの地心・光行差補正済みデータを補間し、当日の黄道座標に変換します。補間誤差は検証点で1秒角未満でしたが、全日時の精度を保証する値ではありません。アスペクトは黄経差で判定し、詳細欄の「天球上の角距離」と区別します。ハウスはプラシーダス・キャンパナス・コッホ・レギオモンタナス・ポーフィリー・イコール（ASC起点）・ホールサインから選べます。プラシーダスは各黄道点の昼夜の移動時間を、キャンパナスは卯酉線を分割して黄道上の境界を求めます。3Dハウス線は黄道上の境界です。表示設定の「ハウス分割」では、方式に対応する境界を天球上にも描けます。プラシーダスやコッホが計算できない極圏では理由を表示し、ハウス線を隠します。別方式への自動変更は行いません。2Dではハウス線と1〜12の番号を初期表示し、画面上の「ハウス線」で切り替えられます。")}</p><p><strong>{tr("日時と地点")}</strong><br/>{tr("1800〜2200年。「出生データを入力」で都市を選ぶと、当時の夏時間を含む時差をブラウザ内で計算します。下の直接入力欄は固定のUTC差です。自動計算の時差は入力時に確定し、その後の時間再生では固定されます。地点は地平線・ASC・MCに反映されます。緯度の対応範囲は±89°です。")}</p><p><strong>{tr("プライバシー")}</strong><br/>{tr("日時・地点は端末内で計算し、アプリのサーバーへ送信しません。登録、広告、アクセス解析、外部フォントはありません。現在地はボタン操作後にブラウザの許可を得て一度だけ取得します。GPS・Wi-Fiなど取得方法は端末によります。取得座標をアプリのサーバーへ送信せず、保存がONの場合のみ他の地点入力と同様にブラウザ内へ保存します。位置情報サービス自体には端末・ブラウザ提供元の規約が適用されます。追加天体を初めて選ぶ際には、このサイトから固定の天文データ約3.5MBを読み込みます。入力値は含めません。保存は初期状態ではオフ。「日時・地点を保存」と「表示設定を保存」は別々に選べます。有効にした項目のみ、このブラウザのlocalStorageに保存します。表示設定にはテーマ、再生速度・方向・時間幅、ハウス方式と線、アスペクト・感受点・追加天体の表示、種類別オーブ、リリスの種類を含みます。オフにすると対応する保存内容を削除します。共用端末では保存をオフにしてください。ページの配信事業者には通常の接続情報が伝わります。")}</p><p>{tr("「今の星を眺める」は現在時刻に1秒ごとに同期します。視点だけが約4分で1周し、回転は停止できます。戻るかEscで元の日時・表示に戻ります。選択済みの観測地点を使い、GPSの自動取得はしません。")}</p><p>{tr("自動再生は別タブを見ている間は進みません。OSの動きを減らす設定にも対応します。")}</p><p className="credits">{tr("計算:")}<a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener noreferrer">Astronomy Engine</a>{tr("· 描画:")}<a href="https://threejs.org/" target="_blank" rel="noopener noreferrer">Three.js</a>{tr("· 恒星:")}<a href="https://cdsarc.cds.unistra.fr/viz-bin/cat/I/239" target="_blank" rel="noopener noreferrer">{tr("Hipparcos / ESA・CDS")}</a></p></div></DialogContent></Dialog></div></header>
-  <div className="birth-entry" hidden={liveMode}><button className="live-entry" ref={liveEntry} onClick={startLive}>{tr("今の星を眺める")}</button><BirthInput time={time} offset={offset} latitude={latitude} longitude={longitude} onApply={(v:any)=>{setOffset(v.offset);setOffsetDraft(String(v.offset/60));setLatitude(v.latitude);setLongitude(v.longitude);setLatDraft(String(v.latitude));setLonDraft(String(v.longitude));setInstant(v.time);}}/><LocationButton onLocation={(lat,lon)=>{setLatitude(lat);setLongitude(lon);setLatDraft(String(lat));setLonDraft(String(lon));}} onMessage={setMessage}/><span className="section-note">{tr(theme==='sky'?`現地の空：${appearance.phase} · 太陽高度 ${appearance.altitude.toFixed(1)}° ／ 晴天の目安（天候・月明かり・光害は含みません）`:'現在地取得はボタンを押したときだけ。日時は下で指定できます。')}</span></div>
-  <div className="workspace">
-   <section className="stage" aria-label={tr(liveMode?'今の星を眺める':'天球ビュー')}>
-    {tr(liveMode&&<div className="live-bar"><div className="live-clock"><span className="live-dot"/>{tr("今の星")}<time dateTime={new Date(liveTime).toISOString()}>{tr(localInput(liveTime,offset).slice(11,19))}</time><span className="live-zone">{tr(utcLabel)}</span></div><div className="live-actions"><select aria-label={tr("眺めるモードのテーマ")} value={theme} onChange={e=>setTheme(e.target.value)}>{tr(THEMES.map(t=><option key={t.value} value={t.value}>{tr(t.label)}</option>))}</select><button aria-label={tr(autoRotate?'天球の自動回転を止める':'天球の自動回転を再開')} aria-pressed={autoRotate&&!reduced} disabled={reduced} onClick={()=>setAutoRotate(v=>!v)}>{tr(autoRotate&&!reduced?<Pause size={16}/>:<Play size={16}/>)}{tr("回転")}</button><button ref={liveExit} onClick={stopLive} aria-label={tr("眺めるモードを終了")}>{tr("戻る")}<span aria-hidden="true">×</span></button></div></div>)}
-    <div className="scene-heading"><p className="eyebrow">GEOCENTRIC OBSERVATORY / 01</p><p>{tr(observer&&!flat?'地表視点':'地球中心')} <span> / </span>{tr("トロピカル黄道")}</p></div>
-    <div className="view-toggle" role="group" aria-label={tr("表示形式")}><button onClick={()=>dispatchRoot({type:'VIEW_SET',payload:'3d'})} aria-pressed={!flat&&!observer}>3D <span>{tr("天球")}</span></button><button onClick={()=>dispatchRoot({type:'VIEW_SET',payload:'ground'})} aria-pressed={!flat&&observer}>{tr("地上視点")}</button><button onClick={()=>dispatchRoot({type:'VIEW_SET',payload:'2d'})} aria-pressed={flat}>2D <span>{tr("ホロスコープ")}</span></button></div>
-    {tr(ready&&<Sky dimBack={dimBack} locale={locale} theme={theme} chart={chart} focus={liveMode} autoRotate={liveMode&&autoRotate} playing={playing} smoothPlayback={smoothPlayback} houses2d={houses2d} observer={liveMode?false:observer} showBelowHorizon={showBelowHorizon} level={level} heading={heading} headings={headings} nodeOrbit={!liveMode&&nodeOrbit} primeVertical={!liveMode&&primeVertical} trails={!liveMode&&trails} flat={!liveMode&&flat} aspects={showAspects} grid={!liveMode&&gridMode==='grid'} gridMode={liveMode?'off':gridMode} horizon={horizon} houses={!liveMode&&houses} houseSystem={houseSystem} selected={liveMode?null:selected} onSelect={liveMode?()=>{}:setSelected} reset={reset} reduced={reduced} onFps={fpsUpdate} onFlat={()=>dispatchRoot({type:'VIEW_SET',payload:'2d'})}/>)}
-    <div className="scene-tools"><button className="icon-button" onClick={()=>setReset(v=>v+1)} aria-label={tr("視点をリセット")} title={tr("視点をリセット")}><RotateCcw size={17}/></button><Dialog><DialogTrigger className="icon-button" aria-label={tr("表示設定")} title={tr("表示設定")}><SlidersHorizontal size={18}/></DialogTrigger><DialogContent className="settings-dialog" aria-describedby={undefined}><DialogTitle>{tr("表示設定")}</DialogTitle><Toggle label={tr("アスペクト")} value={showAspects} onChange={setShowAspects}/><Choice label={tr("スフィアの補助線")} value={gridMode} onChange={setGridMode} items={[{value:"grid",label:tr("天球グリッド")},{value:"houses",label:tr("ハウス分割")},{value:"off",label:tr("非表示")}]}/><p className="section-note">{tr("補助線は選択中の方式に連動します。キャンパナスとレギオモンタナスは大円、プラシーダスは時間分割の曲線です。コッホは時刻をずらした地平線と子午線による作図線で、互いに交差します。イコール・ホールサイン・ポーフィリーは黄経区分を黄道の極へ延ばした表示です。プラシーダスでは星が昇らない、または沈まない周極域を描かず、線の端を薄くしています。")}</p><Toggle label={tr("天球の裏側を暗くする")} value={dimBack} onChange={setDimBack}/><p className="section-note">{tr("3D天球を外から見るとき、視点から遠い側を薄暗くします。2Dと地上視点では適用しません。")}</p><Toggle label={tr("地平線・ASC・MC")} value={horizon} onChange={setHorizon}/><Toggle label={tr("2Dハウスの境界")} value={houses2d} onChange={setHouses2d}/><Toggle label={tr("3Dハウスの境界（黄道上）")} value={houses} onChange={setHouses}/><Choice label={tr("表示設定のハウス方式")} value={houseSystem} onChange={setHouseSystem} items={HOUSE_SYSTEMS}/><div className="setting-orb"><label>{tr("主要アスペクトの一括オーブ")}<b>{tr(orb.toFixed(1))}°</b></label><Slider aria-label={tr("アスペクトのオーブ")} min={0} max={10} step={.5} value={[orb]} onValueChange={v=>{const n=Array.isArray(v)?v[0]:v;setOrb(n);setAspectSettings(old=>Object.fromEntries(ALL_ASPECTS.map(a=>[a.angle,{...old[a.angle],orb:MAJOR_ASPECTS.includes(a)?n:old[a.angle].orb}])));}}/></div><Toggle label={tr("滑らかな再生（補間）")} value={smoothPlayback} onChange={setSmoothPlayback}/><p className="section-note">{tr("天体計算の間を補間します。再生中の天球表示は数値より通常約0.1秒遅れます。負荷により変わり、停止時に計算日時へ揃います。")}</p><Toggle label={tr("アニメーションを控えめに")} value={reduced} onChange={setReduced}/></DialogContent></Dialog></div>
-    <button className="mobile-chart-toggle" aria-expanded={chartToolsOpen} aria-controls="chart-options" onClick={()=>setChartToolsOpen(v=>!v)}>{tr("チャート操作")}<ChevronRight size={16} className={chartToolsOpen?'expanded':''}/></button>
-    <div id="chart-options" className="chart-options" hidden={compact&&!chartToolsOpen}>
-    <div className="observer-tools"><label className="house-control"><span>{tr("ハウス")}</span><select aria-label={tr("ハウス方式")} value={houseSystem} onChange={e=>setHouseSystem(e.target.value)}>{tr(HOUSE_SYSTEMS.map(h=><option key={h.value} value={h.value}>{tr(h.label)}</option>))}</select></label><Toggle label={tr(flat?"ハウス線":"3Dハウス線")} value={flat?houses2d:houses} onChange={flat?setHouses2d:setHouses}/><button onClick={()=>{dispatchRoot({type:'VIEW_SET',payload:'3d'});setLevel(n=>n+1);}}>{tr("地平線を水平に")}</button>{tr(observer&&!flat&&<><Toggle label={tr("地平線下も表示")} value={showBelowHorizon} onChange={setShowBelowHorizon}/>{tr([{name:'東',angle:90},{name:'南',angle:180},{name:'西',angle:270},{name:'北',angle:0}].map(d=><button key={d.name} aria-label={tr(d.name+'を向く')} onClick={()=>{setHeading(d.angle);setHeadings(n=>n+1);}}>{tr(d.name)}</button>))}<button onClick={()=>{const a=chart.asc*Math.PI/180;setHeading(Math.atan2(chart.east[0]*Math.cos(a)+chart.east[1]*Math.sin(a),chart.north[0]*Math.cos(a)+chart.north[1]*Math.sin(a))*180/Math.PI);setHeadings(n=>n+1);}}>{tr("ASC方向")}</button></>)}{tr(!houseResult.available&&<p className="house-warning" role="status">{tr(houseResult.message)}</p>)}</div>
-    <div className="axis-readout" aria-label={tr("アングル")}><div><span>ASC</span><b>{tr(chart.asc.toFixed(2))}<small>°</small></b></div><div><span>MC</span><b>{tr(chart.mc.toFixed(2))}<small>°</small></b></div><div><span>LST</span><b>{tr((chart.lst/15).toFixed(3))}<small>h</small></b></div></div>
-    <div className="scene-legend">{tr(ALL_ASPECTS.filter(a=>aspectSettings[a.angle].enabled&&(MAJOR_ASPECTS.includes(a)?major:minor)).map(a=><span key={a.angle}><i style={{background:uiAspectColor(a.color)}}/>{tr(a.angle)}°</span>))}{tr(compound&&<span><i style={{background:uiAspectColor("#f4d08a")}}/>{tr("複合")}</span>)}{tr(nodeOrbit&&<span><i style={{background:uiColor("#9ae0ce")}}/>{tr("月軌道")}</span>)}{tr(primeVertical&&!flat&&<span><i style={{background:uiColor("#f4c184")}}/>{tr("卯酉線")}</span>)}</div>
-    </div>
-    <div className="scene-caption"><span><i className="crosshair"/> {tr(flat?'ECLIPTIC PROJECTION':(observer?(showBelowHorizon?'地上視点 / 地平線下を透過':'地上視点 / 地平線下は非表示'):'HORIZON FRAME'))} <span className="dim"> / </span> {tr(fps||'—')} FPS</span><span>{tr(selected?'天体の選択を解除するには空白をクリック':(observer?'ドラッグで見渡す · スクロールで拡大':'ドラッグで回転 · スクロールで拡大'))}</span></div>
+function HelpDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger
+        className="icon-button"
+        aria-label={tr('使い方とプライバシー')}
+      >
+        <Info size={19} />
+      </DialogTrigger>
+      <DialogContent className="help-dialog">
+        <DialogTitle>{tr('空を読むためのガイド')}</DialogTitle>
+        <DialogDescription>
+          {tr('3Dと2Dは、同じ天体の配置を違う視点で表示しています。')}
+        </DialogDescription>
+        <div className="help-copy">
+          <p>
+            <strong>{tr('天球を探る')}</strong>
+            <br />
+            {tr(
+              'ドラッグで回転、ホイールまたはピンチで拡大。天体を選ぶと関連するアスペクトが強調されます。描画領域にフォーカスすると矢印キーで回転、＋／−で拡大縮小できます。',
+            )}
+          </p>
+          <p>
+            <strong>2D ↔ 3D</strong>
+            <br />
+            {tr(
+              '3Dは観測地の地平線を水平面、天頂を上にした天球です。「地平線を水平に」で横からの視点に戻せます。「地上視点」は天球の内側から上下・東西南北を見渡せます。「地平線下も表示」は初期ONで、地面を透かして下側の天体も表示します。OFFで地平線より下を隠せます。地上描画は海抜0mの地表視差を反映し、大気差・地形は含みません。天体表とアスペクト判定は地球中心の値です。2Dでは黄緯を0°に投影し、ASCを左にした円形図になります。天体の大きさと陰影は見やすさのための模式表現で、実際の月相や表面の地形ではありません。惑星は球、感受点は菱形で表示します。背景の恒星22星はHipparcos星表の実座標を使い、固有運動・歳差・章動を反映します。年周光行差・年周視差・大気差は含みません。',
+            )}
+          </p>
+          <p>
+            <strong>{tr('テーマ')}</strong>
+            <br />
+            {tr(
+              'ライト・ダーク・現地の空を切り替えられます。「現地の空」は選択中の地点・日時での太陽高度から、晴天の昼・薄明・夜を近似表示します。地上視点では地平線と太陽の方角に空の色が対応し、昼は背景の恒星が見えなくなります。天体マーカーとアスペクトは読み取り用に残ります。天候・月明かり・光害・大気の状態は含まず、実際の輝度を測定した表示ではありません。2Dでは読みやすい明暗の盤面に切り替わります。「今の星を眺める」でも選んだテーマが適用されます。',
+            )}
+          </p>
+          <p>
+            <strong>{tr('計算条件')}</strong>
+            <br />
+            {tr(
+              '地球中心・トロピカル黄道。Astronomy Engineで太陽から冥王星までを計算します（目標精度は角度約1分）。追加8天体はNASA/JPL Horizonsの地心・光行差補正済みデータを補間し、当日の黄道座標に変換します。補間誤差は検証点で1秒角未満でしたが、全日時の精度を保証する値ではありません。アスペクトは黄経差で判定し、詳細欄の「天球上の角距離」と区別します。ハウスはプラシーダス・キャンパナス・コッホ・レギオモンタナス・ポーフィリー・イコール（ASC起点）・ホールサインから選べます。プラシーダスは各黄道点の昼夜の移動時間を、キャンパナスは卯酉線を分割して黄道上の境界を求めます。3Dハウス線は黄道上の境界です。表示設定の「ハウス分割」では、方式に対応する境界を天球上にも描けます。プラシーダスやコッホが計算できない極圏では理由を表示し、ハウス線を隠します。別方式への自動変更は行いません。2Dではハウス線と1〜12の番号を初期表示し、画面上の「ハウス線」で切り替えられます。',
+            )}
+          </p>
+          <p>
+            <strong>{tr('日時と地点')}</strong>
+            <br />
+            {tr(
+              '1800〜2200年。「出生データを入力」で都市を選ぶと、当時の夏時間を含む時差をブラウザ内で計算します。下の直接入力欄は固定のUTC差です。自動計算の時差は入力時に確定し、その後の時間再生では固定されます。地点は地平線・ASC・MCに反映されます。緯度の対応範囲は±89°です。',
+            )}
+          </p>
+          <p>
+            <strong>{tr('プライバシー')}</strong>
+            <br />
+            {tr(
+              '日時・地点は端末内で計算し、アプリのサーバーへ送信しません。登録、広告、アクセス解析、外部フォントはありません。現在地はボタン操作後にブラウザの許可を得て一度だけ取得します。GPS・Wi-Fiなど取得方法は端末によります。取得座標をアプリのサーバーへ送信せず、保存がONの場合のみ他の地点入力と同様にブラウザ内へ保存します。位置情報サービス自体には端末・ブラウザ提供元の規約が適用されます。追加天体を初めて選ぶ際には、このサイトから固定の天文データ約3.5MBを読み込みます。入力値は含めません。保存は初期状態ではオフ。「日時・地点を保存」と「表示設定を保存」は別々に選べます。有効にした項目のみ、このブラウザのlocalStorageに保存します。表示設定にはテーマ、再生速度・方向・時間幅、ハウス方式と線、アスペクト・感受点・追加天体の表示、種類別オーブ、リリスの種類を含みます。オフにすると対応する保存内容を削除します。共用端末では保存をオフにしてください。ページの配信事業者には通常の接続情報が伝わります。',
+            )}
+          </p>
+          <p>
+            {tr(
+              '「今の星を眺める」は現在時刻に1秒ごとに同期します。視点だけが約4分で1周し、回転は停止できます。戻るかEscで元の日時・表示に戻ります。選択済みの観測地点を使い、GPSの自動取得はしません。',
+            )}
+          </p>
+          <p>
+            {tr(
+              '自動再生は別タブを見ている間は進みません。OSの動きを減らす設定にも対応します。',
+            )}
+          </p>
+          <p className="credits">
+            {tr('計算:')}
+            <a
+              href="https://github.com/cosinekitty/astronomy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Astronomy Engine
+            </a>
+            {tr('· 描画:')}
+            <a
+              href="https://threejs.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Three.js
+            </a>
+            {tr('· 恒星:')}
+            <a
+              href="https://cdsarc.cds.unistra.fr/viz-bin/cat/I/239"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {tr('Hipparcos / ESA・CDS')}
+            </a>
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
+export default function Home() {
+  const locale = useLocale();
+  const rootSnapshot = useRootSnapshot();
+  const dispatchRoot = useRootEvent();
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute(
+        'content',
+        locale === 'en'
+          ? 'Explore geocentric 2D and 3D horoscopes. No registration; calculations run on your device.'
+          : '登録不要、端末内で計算する2D / 3Dホロスコープ。',
+      );
+    document.title =
+      locale === 'en'
+        ? 'CELESTIAL — Celestial Horoscope'
+        : 'CELESTIAL — 天球ホロスコープ';
+  }, [locale]);
+  const [compact, setCompact] = useState(false);
+  const [chartToolsOpen, setChartToolsOpen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 700px)');
+    const update = () => setCompact(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const [dimBack, setDimBack] = useState(false);
+  const [theme, setTheme] = useState('dark');
+  const [savePreferences, setSavePreferences] = useState(false);
+  const [lilithType, setLilithType] = useState('true');
+  const [time, setTime] = useState(Date.UTC(2026, 8, 10));
+  const [anchor, setAnchor] = useState(Date.UTC(2026, 8, 10));
+  const [ready, setReady] = useState(false);
+  const [offset, setOffset] = useState(540);
+  const [offsetDraft, setOffsetDraft] = useState('9');
+  const [dateDraft, setDateDraft] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [latitude, setLatitude] = useState(35.6812);
+  const [longitude, setLongitude] = useState(139.7671);
+  const [latDraft, setLatDraft] = useState('35.6812');
+  const [lonDraft, setLonDraft] = useState('139.7671');
+  const [liveMode, setLiveMode] = useState(false);
+  const [liveTime, setLiveTime] = useState(Date.UTC(2026, 8, 10));
+  const [autoRotate, setAutoRotate] = useState(true);
+  const liveEntry = useRef<HTMLButtonElement>(null);
+  const liveExit = useRef<HTMLButtonElement>(null);
+  function updateLocation(latitude: number, longitude: number) {
+    setLatitude(latitude);
+    setLongitude(longitude);
+    setLatDraft(String(latitude));
+    setLonDraft(String(longitude));
+  }
 
-
-
-
-   </section>
-   <aside className="telemetry" hidden={liveMode}>
-    <Dialog><DialogTrigger className="network-button">{tr("天体・感受点・アスペクト設定")}<SlidersHorizontal size={15}/></DialogTrigger><DialogContent className="network-dialog"><DialogTitle>{tr("アスペクトと追加天体")}</DialogTitle><DialogDescription>{tr("表示する情報と判定条件を選べます。")}</DialogDescription><div className="point-settings"><h3>{tr("感受点と通り道")}</h3><Toggle label={tr("感受点をアスペクトに含める")} value={includePoints} onChange={setIncludePoints}/><p className="section-note">{tr("表示中のヘッド・テイル・バーテックス・選択中のリリスを通常・複合アスペクトの判定に含めます。OFFでも感受点の表示は残ります。ヘッドとテイル同士の組み合わせは常に除外します。")}</p>{tr([{id:'NorthNode',name:'ドラゴンヘッド・テイル'},{id:'Vertex',name:'バーテックス'},{id:'TrueLilith',name:lilithType==='mean'?'リリス（平均位置）':'リリス（真位置）'}].map(p=><Toggle key={p.id} label={tr(p.name)} value={pointIds.includes(p.id)} onChange={v=>setPointIds(old=>{const ids=p.id==='NorthNode'?['NorthNode','SouthNode']:[p.id];return v?[...new Set([...old,...ids])]:old.filter(id=>!ids.includes(id));})}/>))}<label className="toggle-row"><span>{tr("リリスの種類")}</span><select aria-label={tr("リリスの種類")} value={lilithType} onChange={e=>setLilithType(e.target.value)}><option value="true">{tr("真位置")}</option><option value="mean">{tr("平均位置")}</option></select></label><Toggle label={tr("月の軌道面")} value={nodeOrbit} onChange={setNodeOrbit}/><Toggle label={tr("卯酉線（バーテックスの基準）")} value={primeVertical} onChange={setPrimeVertical}/><Toggle label={tr("感受点の移動軌跡")} value={trails} onChange={setTrails}/><p className="section-note">{tr("ヘッド／テイルは月の真交点（接触軌道）。月軌道と黄道の交点です。バーテックスは黄道と卯酉線の西側の交点です。")}</p><p className="section-note">{tr("True Lilithは月の接触軌道の遠地点を近似計算します。平均リリスは月の平均軌道の遠地点を計算します。どちらも小惑星リリスとは異なります。3Dでは黄緯も反映します。Swiss Ephemerisとの199日時の照合では黄経差が最大約0.16°でした。平均リリスの同じ199日時の照合では黄経差が最大約0.0007°でした。いずれも全日時の誤差上限ではありません。")}</p><p className="section-note">{tr("移動軌跡は黄経の変化を示します。ヘッド／テイルは前後360日、バーテックスは前後12時間。周囲の細線で表示し、2Dでも確認できます。")}</p></div>{tr(networkSettings)}</DialogContent></Dialog>
-    <FoldSection id="ephemeris-content" title="EPHEMERIS" count={chart.bodies.length+'天体'} compact={compact}>
-    {tr(ephemerisError&&<p role="alert" className="section-note">{tr(ephemerisError)}</p>)}
-    <div className="planet-table"><Table><TableHeader><TableRow><TableHead>{tr("天体")}</TableHead><TableHead>{tr("黄経 / サイン")}</TableHead><TableHead>{tr("運行")}</TableHead></TableRow></TableHeader><TableBody>{tr(chart.bodies.map((b:any)=><TableRow key={b.id} data-selected={selected===b.id}><TableCell><button className="planet-button" onClick={()=>setSelected(selected===b.id?null:b.id)} aria-pressed={selected===b.id}><span style={{color:bodyInkColor(b.color,appearance.light)}}>{tr(b.symbol)}</span>{tr(b.name)}</button></TableCell><TableCell className="position-cell">{tr(signPosition(b.lon))}</TableCell><TableCell className={b.speed<0?'retro':'dim'}>{tr(b.speed<0?'R':'D')}</TableCell></TableRow>))}</TableBody></Table></div>
-    {tr(body&&<div className="body-detail"><div><b style={{color:bodyInkColor(body.color,appearance.light)}}>{tr(body.symbol)} {tr(body.name)}</b><button onClick={()=>setSelected(null)} aria-label={tr("天体の選択を解除")}>×</button></div><dl>{tr('description' in body&&body.description&&<><dt>{tr("種類")}</dt><dd>{tr(body.description)}</dd></>)}<dt>{tr("黄経")}</dt><dd>{tr(body.lon.toFixed(4))}°</dd><dt>{tr("黄緯")}</dt><dd>{tr(body.lat.toFixed(4))}°</dd><dt>{tr("日速度")}</dt><dd>{tr(body.speed.toFixed(4))}{tr("° / 日")}</dd><dt>{tr("地球からの距離")}</dt><dd>{tr(body.distance===null?'—（感受点）':body.distance.toFixed(5)+' AU')}</dd></dl></div>)}
-    </FoldSection>
-    <FoldSection id="aspects-content" title="ASPECT NETWORK" count={visibleAspects.length+'件'} compact={compact}>
-    <div className="network-quick"><Toggle label={tr("アスペクトライン")} value={showAspects} onChange={setShowAspects}/><Toggle label={tr("感受点をアスペクトに含める")} value={includePoints} onChange={setIncludePoints}/><Toggle label={tr("マイナー表示")} value={minor} onChange={setMinor}/><Toggle label={tr("複合表示")} value={compound} onChange={setCompound}/></div>
-    <p className="section-note">{tr("黄経差で判定 · オーブは種類ごとに設定")}</p>
-    {tr(compound&&<div className="compound-list"><p className="eyebrow">ASPECT PATTERNS / {tr(patterns.length)}</p>{tr(patterns.length?patterns.map(p=><button key={p.id} className="pattern-card" aria-pressed={patternFocus===p.id} onClick={()=>setPatternFocus(patternFocus===p.id?null:p.id)}><b>{tr(p.name)}</b><span>{tr(p.bodies.map((id:string)=>bodies.find(b=>b.id===id)?.name).join(' · '))}</span><small>{tr("最大オーブ")}{tr(p.orb.toFixed(2))}°</small></button>):<p className="section-note">{tr("設定した条件に合う複合アスペクトはありません。")}</p>)}</div>)}
-    <div className="aspect-list">{tr(visibleAspects.length?visibleAspects.map((a:any)=>{const left=chart.bodies.find((b:any)=>b.id===a.a)!,right=chart.bodies.find((b:any)=>b.id===a.b)!;return <div className="aspect-item" key={a.a+a.b}><div className="aspect-pair"><button onClick={()=>setSelected(a.a)} aria-label={tr(left.name+'を選択')}>{tr(left.symbol)}</button><span style={{color:uiAspectColor(a.color)}} title={tr(a.name)}>{tr(a.symbol)}</span><button onClick={()=>setSelected(a.b)} aria-label={tr(right.name+'を選択')}>{tr(right.symbol)}</button></div><div className="aspect-info"><span>{tr(a.name)} <b>{tr(a.angle)}°</b></span><small>{tr("オーブ")}{tr(a.orb.toFixed(2))}°{tr(selected&&' / 天球 '+a.skyAngle.toFixed(2)+'°')}</small></div><div className="orb-meter"><i style={{width:Math.max(3,(1-a.orb/Math.max(a.limit,.001))*100)+'%',background:uiAspectColor(a.color)}}/></div></div>;}):<p className="section-note">{tr("指定オーブ内のアスペクトはありません。")}</p>)}</div>
-    </FoldSection>
-   </aside>
-  </div>
-  <section hidden={liveMode} className="timeline" aria-label={tr("時間操作")}>
-   <div className="time-top"><div className="time-display"><span className="eyebrow">{tr(playing?'TIME IN MOTION':'OBSERVATION TIME')} <span className="dim">{tr(utcLabel)}</span></span><TimelineClock time={time} offset={offset} playing={playing} reduced={reduced}/></div><div className="transport"><button className="icon-button" onClick={()=>setInstant(time-DAY)} aria-label={tr("1日前")}><SkipBack size={19}/></button><button className="play-button" onClick={()=>{setDirty(false);setPlaying(v=>!v);}} aria-label={tr(playing?'一時停止':'自動再生')} aria-pressed={playing}>{tr(playing?<Pause size={20}/>:<Play size={20}/>)}</button><button className="icon-button" onClick={()=>setInstant(time+DAY)} aria-label={tr("1日後")}><SkipForward size={19}/></button><button className="now-button" onClick={resetNow}><Clock3 size={16}/>{tr("今")}</button><Choice label={tr("再生方向")} value={String(direction)} onChange={v=>setDirection(Number(v))} items={[{value:'1',label:'未来へ →'},{value:'-1',label:'← 過去へ'}]}/><Choice label={tr("再生速度")} value={String(speed)} onChange={v=>setSpeed(Number(v))} items={[{value:String(1/24),label:'1時間 / 秒'},{value:'1',label:'1日 / 秒'},{value:'7',label:'1週 / 秒'},{value:'30',label:'30日 / 秒'},{value:'365',label:'1年 / 秒'}]}/></div></div>
-   <div className="rail-wrap"><div className="rail-ticks" aria-hidden="true">{tr(Array.from({length:41},(_,i)=><i key={i} className={i%5===0?'major':''}/>))}</div><Slider className="time-slider" aria-label={tr("観測日時のスライダー")} min={Math.max(-span,(MIN_TIME-anchor)/DAY)} max={Math.min(span,(MAX_TIME-anchor)/DAY)} step={1/1440} value={[(time-anchor)/DAY]} onValueChange={v=>{setPlaying(false);setDirty(false);setTime(clampTime(anchor+(Array.isArray(v)?v[0]:v)*DAY));}}/><div className="rail-labels"><span>{tr(localInput(clampTime(anchor-span*DAY),offset).slice(0,10))}</span><button className="anchor-button" onClick={()=>setAnchor(time)}>{tr("現在の表示を中心に")}</button><span>{tr(localInput(clampTime(anchor+span*DAY),offset).slice(0,10))}</span></div></div>
-   <div className="timeline-bottom"><span className="section-note">{tr("スライダーを動かして、過去と未来を探る。")}</span><div className="range-control"><span>{tr("時間幅")}</span><Choice label={tr("スライダーの時間幅")} value={String(span)} onChange={v=>{setSpan(Number(v));setAnchor(time);}} items={[{value:'1',label:'±1日'},{value:'30',label:'±30日'},{value:'365',label:'±1年'},{value:'3650',label:'±10年'}]}/></div></div>
-  </section>
-  <section hidden={liveMode} className="conditions" aria-label={tr("観測条件")}>
-   <div className="condition-block"><span className="eyebrow">01 / DATE & TIME</span><form onSubmit={applyDate}><label className="field"><span>{tr("年月日・時刻")}</span><input type="datetime-local" step="1" min="1800-01-01T00:00:00" max="2200-12-31T23:59:59" value={dateDraft} onChange={e=>{setDirty(true);setDateDraft(e.target.value);setPlaying(false);}} required/></label><label className="field offset-field"><span>{tr("UTC差（時間）")}</span><input type="number" min="-12" max="14" step=".25" value={offsetDraft} onChange={e=>setOffsetDraft(e.target.value)}/></label><button type="submit" className="apply-button">{tr("適用")}<ArrowRight size={16}/></button></form><p className="section-note">{tr("当時の夏時間を含むUTC差を指定してください。")}</p></div>
-   <div className="condition-block"><span className="eyebrow">02 / OBSERVER</span><div className="location-preset"><Choice label={tr("観測地点のプリセット")} value={preset} onChange={v=>{const p=PLACES.find(p=>p.id===v);if(p){setLatitude(p.lat);setLongitude(p.lon);setLatDraft(String(p.lat));setLonDraft(String(p.lon));}}} items={[...PLACES.map(p=>({value:p.id,label:p.name})),{value:'custom',label:'座標を指定'}]}/><span className="section-note">{tr("地平線・アングルの基準地点")}</span></div><form onSubmit={applyLocation}><label className="field"><span>{tr("緯度（北＋）")}</span><input type="number" step="any" min="-89" max="89" value={latDraft} onChange={e=>setLatDraft(e.target.value)} required/></label><label className="field"><span>{tr("経度（東＋）")}</span><input type="number" step="any" min="-180" max="180" value={lonDraft} onChange={e=>setLonDraft(e.target.value)} required/></label><button className="apply-button" type="submit">{tr("適用")}<ArrowRight size={16}/></button></form></div>
-  </section>
-  <footer hidden={liveMode} className="privacy-footer"><div><ShieldCheck size={17}/><span>{tr("入力情報は端末内で処理")}</span></div><div className="save-options"><Toggle label={tr("このブラウザに表示設定を保存")} value={savePreferences} onChange={togglePreferenceSave}/><Toggle label={tr("このブラウザに日時・地点を保存")} value={persist} onChange={toggleSave}/></div><span className="version">CELESTIAL / 1.3</span><div className="creator-credit"><span>© 2026 Setsuna SHIROSAKI</span><span className="creator-roles">{tr("企画・制作：Setsuna SHIROSAKI · AI開発支援：GPT-6 Astra")}</span><a href="/third-party-notices.txt" target="_blank" rel="noopener noreferrer">{tr("使用ライブラリ・データの権利表記")}</a></div></footer>
-  {tr(message&&<div role="status" className="notice"><span>{tr(message)}</span><button aria-label={tr("通知を閉じる")} onClick={()=>setMessage('')}>×</button></div>)}
- </main>;
+  const observationTime = liveMode ? liveTime : time;
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [direction, setDirection] = useState(1);
+  const [span, setSpan] = useState(30);
+  const [showAspects, setShowAspects] = useState(true);
+  const [gridMode, setGridMode] = useState('grid');
+  const [horizon, setHorizon] = useState(true);
+  const [houses, setHouses] = useState(false);
+  const [houses2d, setHouses2d] = useState(true);
+  const [smoothPlayback, setSmoothPlayback] = useState(true);
+  const [houseSystem, setHouseSystem] = useState('equal');
+  const [showBelowHorizon, setShowBelowHorizon] = useState(true);
+  const [level, setLevel] = useState(0);
+  const [heading, setHeading] = useState(90);
+  const [headings, setHeadings] = useState(0);
+  const [pointIds, setPointIds] = useState([
+    'NorthNode',
+    'SouthNode',
+    'Vertex',
+    'TrueLilith',
+  ]);
+  const [nodeOrbit, setNodeOrbit] = useState(true);
+  const [primeVertical, setPrimeVertical] = useState(true);
+  const [trails, setTrails] = useState(false);
+  const flat = rootSnapshot.view === '2d';
+  const observer = rootSnapshot.view === 'ground';
+  const [orb, setOrb] = useState(6);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [reset, setReset] = useState(0);
+  const [fps, setFps] = useState(0);
+  const [reduced, setReduced] = useState(false);
+  const [persist, setPersist] = useState(false);
+  const [message, setMessage] = useState('');
+  const [aspectSettings, setAspectSettings] = useState(defaultAspectSettings);
+  const [major, setMajor] = useState(true);
+  const [minor, setMinor] = useState(false);
+  const [compound, setCompound] = useState(false);
+  const [includePoints, setIncludePoints] = useState(true);
+  const [patternTypes, setPatternTypes] = useState(PATTERNS.map((p) => p.id));
+  const [patternFocus, setPatternFocus] = useState<string | null>(null);
+  const [asteroids, setAsteroids] = useState<string[]>([]);
+  const [ephemeris, setEphemeris] = useState<Float32Array | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [ephemerisError, setEphemerisError] = useState('');
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!asteroids.length) {
+      setLoading(false);
+      return;
+    }
+    if (ephemeris) return;
+    let cancelled = false;
+    setLoading(true);
+    setEphemerisError('');
+    loadAsteroids()
+      .then((data: Float32Array) => {
+        if (!cancelled) setEphemeris(data);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setEphemerisError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [asteroids.length, ephemeris, retry]);
+  const networkSettings = (
+    <NetworkSettings
+      settings={aspectSettings}
+      setSettings={setAspectSettings}
+      major={major}
+      setMajor={setMajor}
+      minor={minor}
+      setMinor={setMinor}
+      compound={compound}
+      setCompound={setCompound}
+      patterns={patternTypes}
+      setPatterns={setPatternTypes}
+      asteroids={asteroids}
+      setAsteroids={setAsteroids}
+      loading={loading}
+      error={ephemerisError}
+      retry={() => setRetry((n) => n + 1)}
+    />
+  );
+  const actionRef = useRef<(t: number) => void>(() => {});
+  const timeRef = useRef(time);
+  timeRef.current = time;
+  const setInstant = useCallback((t: number) => {
+    setLiveMode(false);
+    setPlaying(false);
+    setTime(clampTime(t));
+    setAnchor(clampTime(t));
+    setDirty(false);
+    setMessage('');
+  }, []);
+  actionRef.current = setInstant;
+  useEffect(() => {
+    let t = Date.now();
+    let lat = 35.6812;
+    let lon = 139.7671;
+    let o = -new Date().getTimezoneOffset();
+    try {
+      const raw = localStorage.getItem(STORAGE);
+      if (raw) {
+        const saved = validateSaved(JSON.parse(raw));
+        if (saved) {
+          ({ time: t, latitude: lat, longitude: lon, offset: o } = saved);
+          setPersist(true);
+        } else {
+          localStorage.removeItem(STORAGE);
+          setMessage(
+            '保存内容を読み込めなかったため、現在日時で開始しました。',
+          );
+        }
+      }
+    } catch {
+      setMessage('ブラウザ内の保存を利用できません。保存なしで使えます。');
+    }
+    try {
+      const raw = localStorage.getItem(PREFERENCES_STORAGE);
+      if (raw) {
+        const saved = validatePreferences(JSON.parse(raw));
+        if (saved) {
+          setDimBack(saved.dimBack);
+          setLocale(saved.locale);
+          setTheme(saved.theme);
+          setSpeed(saved.speed);
+          setDirection(saved.direction);
+          setSpan(saved.span);
+          setHouseSystem(saved.houseSystem);
+          setLilithType(saved.lilithType);
+          setOrb(saved.orb);
+          setPointIds(saved.pointIds);
+          setAsteroids(saved.asteroids);
+          setPatternTypes(saved.patternTypes);
+          setAspectSettings(saved.aspectSettings);
+          setShowAspects(saved.showAspects);
+          setGridMode(saved.gridMode);
+          setHorizon(saved.horizon);
+          setHouses(saved.houses);
+          setHouses2d(saved.houses2d);
+          setSmoothPlayback(saved.smoothPlayback);
+          setShowBelowHorizon(saved.showBelowHorizon);
+          setNodeOrbit(saved.nodeOrbit);
+          setPrimeVertical(saved.primeVertical);
+          setTrails(saved.trails);
+          setMajor(saved.major);
+          setMinor(saved.minor);
+          setCompound(saved.compound);
+          setIncludePoints(saved.includePoints);
+          setSavePreferences(true);
+        } else {
+          localStorage.removeItem(PREFERENCES_STORAGE);
+          setMessage(
+            '保存した表示設定を読み込めなかったため、初期設定で開始しました。',
+          );
+        }
+      }
+    } catch {
+      setMessage('表示設定の保存を読み込めませんでした。初期設定で使えます。');
+    }
+    setTime(clampTime(t));
+    setAnchor(clampTime(t));
+    updateLocation(lat, lon);
+    setOffset(o);
+    setOffsetDraft(String(o / 60));
+    setReady(true);
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(media.matches);
+    const change = () => setReduced(media.matches);
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
+  useEffect(() => {
+    if (!liveMode) return;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const tick = () =>
+      setLiveTime(clampTime(Math.floor(Date.now() / 1000) * 1000));
+    const resume = () => {
+      if (interval !== undefined) clearInterval(interval);
+      interval = undefined;
+      if (!document.hidden) {
+        tick();
+        interval = setInterval(tick, 1000);
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLiveMode(false);
+        requestAnimationFrame(() => liveEntry.current?.focus());
+      }
+    };
+    resume();
+    liveExit.current?.focus();
+    document.addEventListener('visibilitychange', resume);
+    document.addEventListener('keydown', escape);
+    return () => {
+      if (interval !== undefined) clearInterval(interval);
+      document.removeEventListener('visibilitychange', resume);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [liveMode]);
+  useEffect(() => {
+    if (!dirty) setDateDraft(localInput(time, offset));
+  }, [time, offset, dirty]);
+  useEffect(() => {
+    if (!ready || !persist) return;
+    const id = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          STORAGE,
+          JSON.stringify({ version: 1, time, latitude, longitude, offset }),
+        );
+      } catch {
+        setPersist(false);
+        setMessage(
+          '保存できませんでした。ブラウザの保存容量・設定を確認してください。',
+        );
+      }
+    }, 500);
+    return () => clearTimeout(id);
+  }, [time, latitude, longitude, offset, persist, ready]);
+  useEffect(() => {
+    if (!ready || !savePreferences) return;
+    try {
+      localStorage.setItem(
+        PREFERENCES_STORAGE,
+        JSON.stringify({
+          version: 1,
+          dimBack,
+          locale,
+          theme,
+          speed,
+          direction,
+          span,
+          houseSystem,
+          lilithType,
+          orb,
+          pointIds,
+          asteroids,
+          patternTypes,
+          aspectSettings,
+          showAspects,
+          gridMode,
+          horizon,
+          houses,
+          houses2d,
+          smoothPlayback,
+          showBelowHorizon,
+          nodeOrbit,
+          primeVertical,
+          trails,
+          major,
+          minor,
+          compound,
+          includePoints,
+        }),
+      );
+    } catch {
+      setSavePreferences(false);
+      setMessage(
+        '表示設定を保存できませんでした。ブラウザの保存容量・設定を確認してください。',
+      );
+    }
+  }, [
+    ready,
+    savePreferences,
+    dimBack,
+    locale,
+    theme,
+    speed,
+    direction,
+    span,
+    houseSystem,
+    lilithType,
+    orb,
+    pointIds,
+    asteroids,
+    patternTypes,
+    aspectSettings,
+    showAspects,
+    gridMode,
+    horizon,
+    houses,
+    houses2d,
+    smoothPlayback,
+    showBelowHorizon,
+    nodeOrbit,
+    primeVertical,
+    trails,
+    major,
+    minor,
+    compound,
+    includePoints,
+  ]);
+  const togglePreferenceSave = (v: boolean) => {
+    setSavePreferences(v);
+    if (!v) {
+      try {
+        localStorage.removeItem(PREFERENCES_STORAGE);
+        setMessage('保存した表示設定を削除しました。');
+      } catch {
+        setMessage(
+          '表示設定を削除できません。ブラウザのサイトデータ設定から削除してください。',
+        );
+      }
+    }
+  };
+  const toggleSave = (v: boolean) => {
+    setPersist(v);
+    if (!v) {
+      try {
+        localStorage.removeItem(STORAGE);
+        setMessage('保存した日時・地点を削除しました。');
+      } catch {
+        setMessage(
+          '保存データを削除できません。ブラウザのサイトデータ設定から削除してください。',
+        );
+      }
+    }
+  };
+  useEffect(() => {
+    if (!playing) return;
+    let last = performance.now();
+    const id = setInterval(() => {
+      const now = performance.now();
+      const dt = Math.min((now - last) / 1000, 0.25);
+      last = now;
+      if (document.hidden) return;
+      setTime((t) => {
+        const next = clampTime(t + dt * DAY * speed * direction);
+        if (next === MIN_TIME || next === MAX_TIME) setPlaying(false);
+        return next;
+      });
+    }, 100);
+    const hidden = () => {
+      last = performance.now();
+    };
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, [playing, speed, direction]);
+  useEffect(() => {
+    if (playing && Math.abs(time - anchor) > span * DAY) setAnchor(time);
+  }, [time, anchor, span, playing]);
+  useEffect(() => {
+    const context = (document as any).modelContext;
+    if (!context?.registerTool) return;
+    const lifecycle = new AbortController();
+    try {
+      Promise.resolve(
+        context.registerTool(
+          {
+            name: 'set_observation_time',
+            description:
+              'Set this local horoscope to an ISO 8601 time with explicit timezone. No data is sent or saved unless local saving was enabled in the UI.',
+            inputSchema: {
+              type: 'object',
+              properties: { datetime: { type: 'string' } },
+              required: ['datetime'],
+              additionalProperties: false,
+            },
+            annotations: { readOnlyHint: false },
+            async execute(input: any) {
+              if (
+                !input ||
+                Object.keys(input).length !== 1 ||
+                typeof input.datetime !== 'string' ||
+                !/(Z|[+-]\d\d:\d\d)$/.test(input.datetime)
+              )
+                throw Error('An ISO datetime with timezone is required.');
+              const match = input.datetime.match(
+                /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:\d{2})$/,
+              );
+              if (!match)
+                throw Error('Use a complete ISO datetime with timezone.');
+              const zone = match[2];
+              const o =
+                zone === 'Z'
+                  ? 0
+                  : (zone[0] === '-' ? -1 : 1) *
+                    (Number(zone.slice(1, 3)) * 60 + Number(zone.slice(4)));
+              if (zone !== 'Z' && Number(zone.slice(4)) >= 60)
+                throw Error('Invalid timezone offset.');
+              const t = parseInput(match[1], o);
+              actionRef.current(t);
+              await new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => resolve()),
+                ),
+              );
+              return {
+                datetime: new Date(timeRef.current).toISOString(),
+                storage: 'local browser only',
+              };
+            },
+          },
+          { signal: lifecycle.signal },
+        ),
+      ).catch(() => {});
+    } catch {}
+    return () => lifecycle.abort();
+  }, []);
+  const baseChart = useMemo(
+    () => calculate(observationTime, latitude, longitude),
+    [observationTime, latitude, longitude],
+  );
+  const houseResult = useMemo(
+    () => houseCusps({ ...baseChart, latitude }, houseSystem),
+    [baseChart, latitude, houseSystem],
+  );
+  const appearance = useMemo(
+    () => themeAppearance(theme, baseChart),
+    [theme, baseChart],
+  );
+  const uiAspectColor = (color: string) =>
+    aspectInkColor(color, appearance.light);
+  const uiColor = (color: string) => inkColor(color, appearance.light);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.dataset.scheme = appearance.light ? 'light' : 'dark';
+    root.classList.toggle('dark', !appearance.light);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', appearance.light ? '#f2f6fa' : '#060c12');
+  }, [theme, appearance.light]);
+  const sensitive = useMemo(
+    () =>
+      sensitivePoints(
+        observationTime,
+        latitude,
+        longitude,
+        baseChart,
+        lilithType,
+      ),
+    [observationTime, latitude, longitude, baseChart, lilithType],
+  );
+  const paths = useMemo(
+    () =>
+      trails && !liveMode
+        ? pointTrails(observationTime, latitude, longitude)
+        : [],
+    [trails, liveMode, observationTime, latitude, longitude],
+  );
+  const bodies = useMemo(
+    () => [
+      ...baseChart.bodies,
+      ...sensitive.points.filter((p) =>
+        pointIds.includes(p.id === 'MeanLilith' ? 'TrueLilith' : p.id),
+      ),
+      ...(ephemeris
+        ? asteroidBodies(asteroids, observationTime, ephemeris)
+        : []),
+    ],
+    [baseChart, sensitive, pointIds, asteroids, observationTime, ephemeris],
+  );
+  const aspectBodies = useMemo(
+    () =>
+      includePoints
+        ? bodies
+        : bodies.filter((b) => !('kind' in b) || b.kind !== 'point'),
+    [bodies, includePoints],
+  );
+  const aspectList = useMemo(
+    () => aspectEdges(aspectBodies, aspectSettings, { major, minor }),
+    [aspectBodies, aspectSettings, major, minor],
+  );
+  const patterns = useMemo(
+    () =>
+      compound ? findPatterns(aspectBodies, aspectSettings, patternTypes) : [],
+    [aspectBodies, aspectSettings, compound, patternTypes],
+  );
+  const focused = patterns.find((p) => p.id === patternFocus);
+  const patternEdges = useMemo(
+    () => [
+      ...new Map(
+        (focused ? [focused] : patterns)
+          .flatMap((p) => p.edges)
+          .map((e) => [
+            edgeKey(e.a, e.b),
+            { ...e, color: '#f4d08a', pattern: true },
+          ]),
+      ).values(),
+    ],
+    [focused, patterns],
+  );
+  const chart = useMemo(
+    () => ({
+      ...baseChart,
+      time: observationTime,
+      latitude,
+      longitude,
+      bodies,
+      aspects: aspectList,
+      patternEdges,
+      moonOrbit: sensitive.moonOrbit,
+      pointTrails: paths,
+    }),
+    [
+      baseChart,
+      observationTime,
+      latitude,
+      longitude,
+      bodies,
+      aspectList,
+      patternEdges,
+      sensitive,
+      paths,
+    ],
+  );
+  useEffect(() => {
+    if (selected && !bodies.some((b) => b.id === selected)) setSelected(null);
+  }, [bodies, selected]);
+  const body = chart.bodies.find((b) => b.id === selected);
+  const visibleAspects = chart.aspects.filter(
+    (a) => !selected || a.a === selected || a.b === selected,
+  );
+  const utcLabel = offsetLabel(offset);
+  const applyDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const h = Number(offsetDraft);
+      if (
+        !offsetDraft.trim() ||
+        !Number.isFinite(h) ||
+        h < -12 ||
+        h > 14 ||
+        Math.abs(h * 3600 - Math.round(h * 3600)) > 0.00001
+      )
+        throw Error('UTC差は−12〜14時間で入力してください。');
+      const o = Math.round(h * 3600) / 60;
+      const t = parseInput(dateDraft, o);
+      setOffset(o);
+      setInstant(t);
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  };
+  const applyLocation = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lat = Number(latDraft);
+    const lon = Number(lonDraft);
+    if (
+      !latDraft.trim() ||
+      !lonDraft.trim() ||
+      !Number.isFinite(lat) ||
+      Math.abs(lat) > 89 ||
+      !Number.isFinite(lon) ||
+      Math.abs(lon) > 180
+    ) {
+      setMessage('緯度は−89〜89°、経度は−180〜180°で入力してください。');
+      return;
+    }
+    setLatitude(lat);
+    setLongitude(lon);
+    setMessage('観測地点を更新しました。');
+  };
+  const preset =
+    PLACES.find((p) => p.lat === latitude && p.lon === longitude)?.id ??
+    'custom';
+  const resetNow = () => setInstant(Date.now());
+  const startLive = () => {
+    dispatchRoot({ type: 'LIVE_START' });
+    setPlaying(false);
+    setAutoRotate(true);
+    setLiveTime(clampTime(Math.floor(Date.now() / 1000) * 1000));
+    setLiveMode(true);
+  };
+  const stopLive = () => {
+    dispatchRoot({ type: 'LIVE_STOP' });
+    setLiveMode(false);
+    requestAnimationFrame(() => liveEntry.current?.focus());
+  };
+  return (
+    <main className={liveMode ? 'observatory is-live' : 'observatory'}>
+      <header className="mast" hidden={liveMode}>
+        <a className="brand" href="/" aria-label={tr('CELESTIAL ホーム')}>
+          <span className="brand-mark">◎</span>CELESTIAL
+          <span className="brand-sub">{tr('天球ホロスコープ')}</span>
+        </a>
+        <div className="mast-right">
+          <label className="language-control">
+            <span>Language</span>
+            <select
+              aria-label="Language"
+              value={locale}
+              onChange={(e) => {
+                const value = e.target.value;
+                dispatchRoot({ type: 'LOCALE_SET', payload: value });
+                setLocale(value);
+              }}
+            >
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label className="theme-control">
+            <span>{tr('テーマ')}</span>
+            <select
+              aria-label={tr('テーマ')}
+              value={theme}
+              onChange={(e) => {
+                const value = e.target.value;
+                dispatchRoot({ type: 'THEME_SET', payload: value });
+                setTheme(value);
+              }}
+            >
+              {THEMES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {tr(t.label)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="status">
+            <i /> LOCAL COMPUTATION
+          </span>
+          <HelpDialog />
+        </div>
+      </header>
+      <div className="birth-entry" hidden={liveMode}>
+        <button className="live-entry" ref={liveEntry} onClick={startLive}>
+          {tr('今の星を眺める')}
+        </button>
+        <BirthInput
+          time={time}
+          offset={offset}
+          latitude={latitude}
+          longitude={longitude}
+          onApply={(v) => {
+            setOffset(v.offset);
+            setOffsetDraft(String(v.offset / 60));
+            updateLocation(v.latitude, v.longitude);
+            setInstant(v.time);
+          }}
+        />
+        <LocationButton
+          onLocation={updateLocation}
+          onMessage={setMessage}
+        />
+        <span className="section-note">
+          {tr(
+            theme === 'sky'
+              ? `現地の空：${appearance.phase} · 太陽高度 ${appearance.altitude.toFixed(1)}° ／ 晴天の目安（天候・月明かり・光害は含みません）`
+              : '現在地取得はボタンを押したときだけ。日時は下で指定できます。',
+          )}
+        </span>
+      </div>
+      <div className="workspace">
+        <section
+          className="stage"
+          aria-label={tr(liveMode ? '今の星を眺める' : '天球ビュー')}
+        >
+          {liveMode && (
+            <div className="live-bar">
+              <div className="live-clock">
+                <span className="live-dot" />
+                {tr('今の星')}
+                <time dateTime={new Date(liveTime).toISOString()}>
+                  {tr(localInput(liveTime, offset).slice(11, 19))}
+                </time>
+                <span className="live-zone">{tr(utcLabel)}</span>
+              </div>
+              <div className="live-actions">
+                <select
+                  aria-label={tr('眺めるモードのテーマ')}
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                >
+                  {THEMES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {tr(t.label)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  aria-label={tr(
+                    autoRotate
+                      ? '天球の自動回転を止める'
+                      : '天球の自動回転を再開',
+                  )}
+                  aria-pressed={autoRotate && !reduced}
+                  disabled={reduced}
+                  onClick={() => setAutoRotate((v) => !v)}
+                >
+                  {autoRotate && !reduced ? (
+                    <Pause size={16} />
+                  ) : (
+                    <Play size={16} />
+                  )}
+                  {tr('回転')}
+                </button>
+                <button
+                  ref={liveExit}
+                  onClick={stopLive}
+                  aria-label={tr('眺めるモードを終了')}
+                >
+                  {tr('戻る')}
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="scene-heading">
+            <p className="eyebrow">GEOCENTRIC OBSERVATORY / 01</p>
+            <p>
+              {tr(observer && !flat ? '地表視点' : '地球中心')} <span> / </span>
+              {tr('トロピカル黄道')}
+            </p>
+          </div>
+          <div className="view-toggle" role="group" aria-label={tr('表示形式')}>
+            <button
+              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '3d' })}
+              aria-pressed={!flat && !observer}
+            >
+              3D <span>{tr('天球')}</span>
+            </button>
+            <button
+              onClick={() =>
+                dispatchRoot({ type: 'VIEW_SET', payload: 'ground' })
+              }
+              aria-pressed={!flat && observer}
+            >
+              {tr('地上視点')}
+            </button>
+            <button
+              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
+              aria-pressed={flat}
+            >
+              2D <span>{tr('ホロスコープ')}</span>
+            </button>
+          </div>
+          {ready && (
+            <Sky
+              dimBack={dimBack}
+              locale={locale}
+              theme={theme}
+              chart={chart}
+              focus={liveMode}
+              autoRotate={liveMode && autoRotate}
+              playing={playing}
+              smoothPlayback={smoothPlayback}
+              houses2d={houses2d}
+              observer={liveMode ? false : observer}
+              showBelowHorizon={showBelowHorizon}
+              level={level}
+              heading={heading}
+              headings={headings}
+              nodeOrbit={!liveMode && nodeOrbit}
+              primeVertical={!liveMode && primeVertical}
+              trails={!liveMode && trails}
+              flat={!liveMode && flat}
+              aspects={showAspects}
+              grid={!liveMode && gridMode === 'grid'}
+              gridMode={liveMode ? 'off' : gridMode}
+              horizon={horizon}
+              houses={!liveMode && houses}
+              houseSystem={houseSystem}
+              selected={liveMode ? null : selected}
+              onSelect={liveMode ? () => {} : setSelected}
+              reset={reset}
+              reduced={reduced}
+              onFps={setFps}
+              onFlat={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
+            />
+          )}
+          <div className="scene-tools">
+            <button
+              className="icon-button"
+              onClick={() => setReset((v) => v + 1)}
+              aria-label={tr('視点をリセット')}
+              title={tr('視点をリセット')}
+            >
+              <RotateCcw size={17} />
+            </button>
+            <Dialog>
+              <DialogTrigger
+                className="icon-button"
+                aria-label={tr('表示設定')}
+                title={tr('表示設定')}
+              >
+                <SlidersHorizontal size={18} />
+              </DialogTrigger>
+              <DialogContent
+                className="settings-dialog"
+                aria-describedby={undefined}
+              >
+                <DialogTitle>{tr('表示設定')}</DialogTitle>
+                <Toggle
+                  label={tr('アスペクト')}
+                  value={showAspects}
+                  onChange={setShowAspects}
+                />
+                <Choice
+                  label={tr('スフィアの補助線')}
+                  value={gridMode}
+                  onChange={setGridMode}
+                  items={[
+                    { value: 'grid', label: tr('天球グリッド') },
+                    { value: 'houses', label: tr('ハウス分割') },
+                    { value: 'off', label: tr('非表示') },
+                  ]}
+                />
+                <p className="section-note">
+                  {tr(
+                    '補助線は選択中の方式に連動します。キャンパナスとレギオモンタナスは大円、プラシーダスは時間分割の曲線です。コッホは時刻をずらした地平線と子午線による作図線で、互いに交差します。イコール・ホールサイン・ポーフィリーは黄経区分を黄道の極へ延ばした表示です。プラシーダスでは星が昇らない、または沈まない周極域を描かず、線の端を薄くしています。',
+                  )}
+                </p>
+                <Toggle
+                  label={tr('天球の裏側を暗くする')}
+                  value={dimBack}
+                  onChange={setDimBack}
+                />
+                <p className="section-note">
+                  {tr(
+                    '3D天球を外から見るとき、視点から遠い側を薄暗くします。2Dと地上視点では適用しません。',
+                  )}
+                </p>
+                <Toggle
+                  label={tr('地平線・ASC・MC')}
+                  value={horizon}
+                  onChange={setHorizon}
+                />
+                <Toggle
+                  label={tr('2Dハウスの境界')}
+                  value={houses2d}
+                  onChange={setHouses2d}
+                />
+                <Toggle
+                  label={tr('3Dハウスの境界（黄道上）')}
+                  value={houses}
+                  onChange={setHouses}
+                />
+                <Choice
+                  label={tr('表示設定のハウス方式')}
+                  value={houseSystem}
+                  onChange={setHouseSystem}
+                  items={HOUSE_SYSTEMS}
+                />
+                <div className="setting-orb">
+                  <label>
+                    {tr('主要アスペクトの一括オーブ')}
+                    <b>{tr(orb.toFixed(1))}°</b>
+                  </label>
+                  <Slider
+                    aria-label={tr('アスペクトのオーブ')}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    value={[orb]}
+                    onValueChange={(v) => {
+                      const n = Array.isArray(v) ? v[0] : v;
+                      setOrb(n);
+                      setAspectSettings((old) =>
+                        Object.fromEntries(
+                          ALL_ASPECTS.map((a) => [
+                            a.angle,
+                            {
+                              ...old[a.angle],
+                              orb: MAJOR_ASPECTS.includes(a)
+                                ? n
+                                : old[a.angle].orb,
+                            },
+                          ]),
+                        ),
+                      );
+                    }}
+                  />
+                </div>
+                <Toggle
+                  label={tr('滑らかな再生（補間）')}
+                  value={smoothPlayback}
+                  onChange={setSmoothPlayback}
+                />
+                <p className="section-note">
+                  {tr(
+                    '天体計算の間を補間します。再生中の天球表示は数値より通常約0.1秒遅れます。負荷により変わり、停止時に計算日時へ揃います。',
+                  )}
+                </p>
+                <Toggle
+                  label={tr('アニメーションを控えめに')}
+                  value={reduced}
+                  onChange={setReduced}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+          <button
+            className="mobile-chart-toggle"
+            aria-expanded={chartToolsOpen}
+            aria-controls="chart-options"
+            onClick={() => setChartToolsOpen((v) => !v)}
+          >
+            {tr('チャート操作')}
+            <ChevronRight
+              size={16}
+              className={chartToolsOpen ? 'expanded' : ''}
+            />
+          </button>
+          <div
+            id="chart-options"
+            className="chart-options"
+            hidden={compact && !chartToolsOpen}
+          >
+            <div className="observer-tools">
+              <label className="house-control">
+                <span>{tr('ハウス')}</span>
+                <select
+                  aria-label={tr('ハウス方式')}
+                  value={houseSystem}
+                  onChange={(e) => setHouseSystem(e.target.value)}
+                >
+                  {HOUSE_SYSTEMS.map((h) => (
+                    <option key={h.value} value={h.value}>
+                      {tr(h.label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Toggle
+                label={tr(flat ? 'ハウス線' : '3Dハウス線')}
+                value={flat ? houses2d : houses}
+                onChange={flat ? setHouses2d : setHouses}
+              />
+              <button
+                onClick={() => {
+                  dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
+                  setLevel((n) => n + 1);
+                }}
+              >
+                {tr('地平線を水平に')}
+              </button>
+              {observer && !flat && (
+                <>
+                  <Toggle
+                    label={tr('地平線下も表示')}
+                    value={showBelowHorizon}
+                    onChange={setShowBelowHorizon}
+                  />
+                  {[
+                    { name: '東', angle: 90 },
+                    { name: '南', angle: 180 },
+                    { name: '西', angle: 270 },
+                    { name: '北', angle: 0 },
+                  ].map((d) => (
+                    <button
+                      key={d.name}
+                      aria-label={tr(d.name + 'を向く')}
+                      onClick={() => {
+                        setHeading(d.angle);
+                        setHeadings((n) => n + 1);
+                      }}
+                    >
+                      {tr(d.name)}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const a = (chart.asc * Math.PI) / 180;
+                      setHeading(
+                        (Math.atan2(
+                          chart.east[0] * Math.cos(a) +
+                            chart.east[1] * Math.sin(a),
+                          chart.north[0] * Math.cos(a) +
+                            chart.north[1] * Math.sin(a),
+                        ) *
+                          180) /
+                          Math.PI,
+                      );
+                      setHeadings((n) => n + 1);
+                    }}
+                  >
+                    {tr('ASC方向')}
+                  </button>
+                </>
+              )}
+              {!houseResult.available && (
+                <p className="house-warning" role="status">
+                  {tr(houseResult.message)}
+                </p>
+              )}
+            </div>
+            <div className="axis-readout" aria-label={tr('アングル')}>
+              <div>
+                <span>ASC</span>
+                <b>
+                  {tr(chart.asc.toFixed(2))}
+                  <small>°</small>
+                </b>
+              </div>
+              <div>
+                <span>MC</span>
+                <b>
+                  {tr(chart.mc.toFixed(2))}
+                  <small>°</small>
+                </b>
+              </div>
+              <div>
+                <span>LST</span>
+                <b>
+                  {tr((chart.lst / 15).toFixed(3))}
+                  <small>h</small>
+                </b>
+              </div>
+            </div>
+            <div className="scene-legend">
+              {ALL_ASPECTS.filter(
+                (a) =>
+                  aspectSettings[a.angle].enabled &&
+                  (MAJOR_ASPECTS.includes(a) ? major : minor),
+              ).map((a) => (
+                <span key={a.angle}>
+                  <i style={{ background: uiAspectColor(a.color) }} />
+                  {a.angle}°
+                </span>
+              ))}
+              {compound && (
+                <span>
+                  <i style={{ background: uiAspectColor('#f4d08a') }} />
+                  {tr('複合')}
+                </span>
+              )}
+              {nodeOrbit && (
+                <span>
+                  <i style={{ background: uiColor('#9ae0ce') }} />
+                  {tr('月軌道')}
+                </span>
+              )}
+              {primeVertical && !flat && (
+                <span>
+                  <i style={{ background: uiColor('#f4c184') }} />
+                  {tr('卯酉線')}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="scene-caption">
+            <span>
+              <i className="crosshair" />{' '}
+              {tr(
+                flat
+                  ? 'ECLIPTIC PROJECTION'
+                  : observer
+                    ? showBelowHorizon
+                      ? '地上視点 / 地平線下を透過'
+                      : '地上視点 / 地平線下は非表示'
+                    : 'HORIZON FRAME',
+              )}{' '}
+              <span className="dim"> / </span> {tr(fps || '—')} FPS
+            </span>
+            <span>
+              {tr(
+                selected
+                  ? '天体の選択を解除するには空白をクリック'
+                  : observer
+                    ? 'ドラッグで見渡す · スクロールで拡大'
+                    : 'ドラッグで回転 · スクロールで拡大',
+              )}
+            </span>
+          </div>
+        </section>
+        <aside className="telemetry" hidden={liveMode}>
+          <Dialog>
+            <DialogTrigger className="network-button">
+              {tr('天体・感受点・アスペクト設定')}
+              <SlidersHorizontal size={15} />
+            </DialogTrigger>
+            <DialogContent className="network-dialog">
+              <DialogTitle>{tr('アスペクトと追加天体')}</DialogTitle>
+              <DialogDescription>
+                {tr('表示する情報と判定条件を選べます。')}
+              </DialogDescription>
+              <div className="point-settings">
+                <h3>{tr('感受点と通り道')}</h3>
+                <Toggle
+                  label={tr('感受点をアスペクトに含める')}
+                  value={includePoints}
+                  onChange={setIncludePoints}
+                />
+                <p className="section-note">
+                  {tr(
+                    '表示中のヘッド・テイル・バーテックス・選択中のリリスを通常・複合アスペクトの判定に含めます。OFFでも感受点の表示は残ります。ヘッドとテイル同士の組み合わせは常に除外します。',
+                  )}
+                </p>
+                {[
+                  { id: 'NorthNode', name: 'ドラゴンヘッド・テイル' },
+                  { id: 'Vertex', name: 'バーテックス' },
+                  {
+                    id: 'TrueLilith',
+                    name:
+                      lilithType === 'mean'
+                        ? 'リリス（平均位置）'
+                        : 'リリス（真位置）',
+                  },
+                ].map((p) => (
+                  <Toggle
+                    key={p.id}
+                    label={tr(p.name)}
+                    value={pointIds.includes(p.id)}
+                    onChange={(v) =>
+                      setPointIds((old) => {
+                        const ids =
+                          p.id === 'NorthNode'
+                            ? ['NorthNode', 'SouthNode']
+                            : [p.id];
+                        return v
+                          ? [...new Set([...old, ...ids])]
+                          : old.filter((id) => !ids.includes(id));
+                      })
+                    }
+                  />
+                ))}
+                <label className="toggle-row">
+                  <span>{tr('リリスの種類')}</span>
+                  <select
+                    aria-label={tr('リリスの種類')}
+                    value={lilithType}
+                    onChange={(e) => setLilithType(e.target.value)}
+                  >
+                    <option value="true">{tr('真位置')}</option>
+                    <option value="mean">{tr('平均位置')}</option>
+                  </select>
+                </label>
+                <Toggle
+                  label={tr('月の軌道面')}
+                  value={nodeOrbit}
+                  onChange={setNodeOrbit}
+                />
+                <Toggle
+                  label={tr('卯酉線（バーテックスの基準）')}
+                  value={primeVertical}
+                  onChange={setPrimeVertical}
+                />
+                <Toggle
+                  label={tr('感受点の移動軌跡')}
+                  value={trails}
+                  onChange={setTrails}
+                />
+                <p className="section-note">
+                  {tr(
+                    'ヘッド／テイルは月の真交点（接触軌道）。月軌道と黄道の交点です。バーテックスは黄道と卯酉線の西側の交点です。',
+                  )}
+                </p>
+                <p className="section-note">
+                  {tr(
+                    'True Lilithは月の接触軌道の遠地点を近似計算します。平均リリスは月の平均軌道の遠地点を計算します。どちらも小惑星リリスとは異なります。3Dでは黄緯も反映します。Swiss Ephemerisとの199日時の照合では黄経差が最大約0.16°でした。平均リリスの同じ199日時の照合では黄経差が最大約0.0007°でした。いずれも全日時の誤差上限ではありません。',
+                  )}
+                </p>
+                <p className="section-note">
+                  {tr(
+                    '移動軌跡は黄経の変化を示します。ヘッド／テイルは前後360日、バーテックスは前後12時間。周囲の細線で表示し、2Dでも確認できます。',
+                  )}
+                </p>
+              </div>
+              {networkSettings}
+            </DialogContent>
+          </Dialog>
+          <FoldSection
+            id="ephemeris-content"
+            title="EPHEMERIS"
+            count={chart.bodies.length + '天体'}
+            compact={compact}
+          >
+            {tr(
+              ephemerisError && (
+                <p role="alert" className="section-note">
+                  {tr(ephemerisError)}
+                </p>
+              ),
+            )}
+            <div className="planet-table">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{tr('天体')}</TableHead>
+                    <TableHead>{tr('黄経 / サイン')}</TableHead>
+                    <TableHead>{tr('運行')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {chart.bodies.map((b) => (
+                    <TableRow key={b.id} data-selected={selected === b.id}>
+                      <TableCell>
+                        <button
+                          className="planet-button"
+                          onClick={() =>
+                            setSelected(selected === b.id ? null : b.id)
+                          }
+                          aria-pressed={selected === b.id}
+                        >
+                          <span
+                            style={{
+                              color: bodyInkColor(b.color, appearance.light),
+                            }}
+                          >
+                            {tr(b.symbol)}
+                          </span>
+                          {tr(b.name)}
+                        </button>
+                      </TableCell>
+                      <TableCell className="position-cell">
+                        {tr(signPosition(b.lon))}
+                      </TableCell>
+                      <TableCell className={b.speed < 0 ? 'retro' : 'dim'}>
+                        {tr(b.speed < 0 ? 'R' : 'D')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {body && (
+              <div className="body-detail">
+                <div>
+                  <b
+                    style={{
+                      color: bodyInkColor(body.color, appearance.light),
+                    }}
+                  >
+                    {tr(body.symbol)} {tr(body.name)}
+                  </b>
+                  <button
+                    onClick={() => setSelected(null)}
+                    aria-label={tr('天体の選択を解除')}
+                  >
+                    ×
+                  </button>
+                </div>
+                <dl>
+                  {tr(
+                    'description' in body && body.description && (
+                      <>
+                        <dt>{tr('種類')}</dt>
+                        <dd>{tr(body.description)}</dd>
+                      </>
+                    ),
+                  )}
+                  <dt>{tr('黄経')}</dt>
+                  <dd>{tr(body.lon.toFixed(4))}°</dd>
+                  <dt>{tr('黄緯')}</dt>
+                  <dd>{tr(body.lat.toFixed(4))}°</dd>
+                  <dt>{tr('日速度')}</dt>
+                  <dd>
+                    {tr(body.speed.toFixed(4))}
+                    {tr('° / 日')}
+                  </dd>
+                  <dt>{tr('地球からの距離')}</dt>
+                  <dd>
+                    {tr(
+                      body.distance === null
+                        ? '—（感受点）'
+                        : body.distance.toFixed(5) + ' AU',
+                    )}
+                  </dd>
+                </dl>
+              </div>
+            )}
+          </FoldSection>
+          <FoldSection
+            id="aspects-content"
+            title="ASPECT NETWORK"
+            count={visibleAspects.length + '件'}
+            compact={compact}
+          >
+            <div className="network-quick">
+              <Toggle
+                label={tr('アスペクトライン')}
+                value={showAspects}
+                onChange={setShowAspects}
+              />
+              <Toggle
+                label={tr('感受点をアスペクトに含める')}
+                value={includePoints}
+                onChange={setIncludePoints}
+              />
+              <Toggle
+                label={tr('マイナー表示')}
+                value={minor}
+                onChange={setMinor}
+              />
+              <Toggle
+                label={tr('複合表示')}
+                value={compound}
+                onChange={setCompound}
+              />
+            </div>
+            <p className="section-note">
+              {tr('黄経差で判定 · オーブは種類ごとに設定')}
+            </p>
+            {compound && (
+              <div className="compound-list">
+                <p className="eyebrow">ASPECT PATTERNS / {patterns.length}</p>
+                {patterns.length ? (
+                  patterns.map((p) => (
+                    <button
+                      key={p.id}
+                      className="pattern-card"
+                      aria-pressed={patternFocus === p.id}
+                      onClick={() =>
+                        setPatternFocus(patternFocus === p.id ? null : p.id)
+                      }
+                    >
+                      <b>{tr(p.name)}</b>
+                      <span>
+                        {tr(
+                          p.bodies
+                            .map(
+                              (id: string) =>
+                                bodies.find((b) => b.id === id)?.name,
+                            )
+                            .join(' · '),
+                        )}
+                      </span>
+                      <small>
+                        {tr('最大オーブ')}
+                        {tr(p.orb.toFixed(2))}°
+                      </small>
+                    </button>
+                  ))
+                ) : (
+                  <p className="section-note">
+                    {tr('設定した条件に合う複合アスペクトはありません。')}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="aspect-list">
+              {visibleAspects.length ? (
+                visibleAspects.map((a) => {
+                  const left = chart.bodies.find((b) => b.id === a.a)!;
+                  const right = chart.bodies.find((b) => b.id === a.b)!;
+                  return (
+                    <div className="aspect-item" key={a.a + a.b}>
+                      <div className="aspect-pair">
+                        <button
+                          onClick={() => setSelected(a.a)}
+                          aria-label={tr(left.name + 'を選択')}
+                        >
+                          {tr(left.symbol)}
+                        </button>
+                        <span
+                          style={{ color: uiAspectColor(a.color) }}
+                          title={tr(a.name)}
+                        >
+                          {tr(a.symbol)}
+                        </span>
+                        <button
+                          onClick={() => setSelected(a.b)}
+                          aria-label={tr(right.name + 'を選択')}
+                        >
+                          {tr(right.symbol)}
+                        </button>
+                      </div>
+                      <div className="aspect-info">
+                        <span>
+                          {tr(a.name)} <b>{tr(a.angle)}°</b>
+                        </span>
+                        <small>
+                          {tr('オーブ')}
+                          {tr(a.orb.toFixed(2))}°
+                          {tr(
+                            selected &&
+                              ' / 天球 ' + a.skyAngle.toFixed(2) + '°',
+                          )}
+                        </small>
+                      </div>
+                      <div className="orb-meter">
+                        <i
+                          style={{
+                            width:
+                              Math.max(
+                                3,
+                                (1 - a.orb / Math.max(a.limit, 0.001)) * 100,
+                              ) + '%',
+                            background: uiAspectColor(a.color),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="section-note">
+                  {tr('指定オーブ内のアスペクトはありません。')}
+                </p>
+              )}
+            </div>
+          </FoldSection>
+        </aside>
+      </div>
+      <section
+        hidden={liveMode}
+        className="timeline"
+        aria-label={tr('時間操作')}
+      >
+        <div className="time-top">
+          <div className="time-display">
+            <span className="eyebrow">
+              {tr(playing ? 'TIME IN MOTION' : 'OBSERVATION TIME')}{' '}
+              <span className="dim">{tr(utcLabel)}</span>
+            </span>
+            <TimelineClock
+              time={time}
+              offset={offset}
+              playing={playing}
+              reduced={reduced}
+            />
+          </div>
+          <div className="transport">
+            <button
+              className="icon-button"
+              onClick={() => setInstant(time - DAY)}
+              aria-label={tr('1日前')}
+            >
+              <SkipBack size={19} />
+            </button>
+            <button
+              className="play-button"
+              onClick={() => {
+                setDirty(false);
+                setPlaying((v) => !v);
+              }}
+              aria-label={tr(playing ? '一時停止' : '自動再生')}
+              aria-pressed={playing}
+            >
+              {playing ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+            <button
+              className="icon-button"
+              onClick={() => setInstant(time + DAY)}
+              aria-label={tr('1日後')}
+            >
+              <SkipForward size={19} />
+            </button>
+            <button className="now-button" onClick={resetNow}>
+              <Clock3 size={16} />
+              {tr('今')}
+            </button>
+            <Choice
+              label={tr('再生方向')}
+              value={String(direction)}
+              onChange={(v) => setDirection(Number(v))}
+              items={[
+                { value: '1', label: '未来へ →' },
+                { value: '-1', label: '← 過去へ' },
+              ]}
+            />
+            <Choice
+              label={tr('再生速度')}
+              value={String(speed)}
+              onChange={(v) => setSpeed(Number(v))}
+              items={[
+                { value: String(1 / 24), label: '1時間 / 秒' },
+                { value: '1', label: '1日 / 秒' },
+                { value: '7', label: '1週 / 秒' },
+                { value: '30', label: '30日 / 秒' },
+                { value: '365', label: '1年 / 秒' },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="rail-wrap">
+          <div className="rail-ticks" aria-hidden="true">
+            {Array.from({ length: 41 }, (_, i) => (
+              <i key={i} className={i % 5 === 0 ? 'major' : ''} />
+            ))}
+          </div>
+          <Slider
+            className="time-slider"
+            aria-label={tr('観測日時のスライダー')}
+            min={Math.max(-span, (MIN_TIME - anchor) / DAY)}
+            max={Math.min(span, (MAX_TIME - anchor) / DAY)}
+            step={1 / 1440}
+            value={[(time - anchor) / DAY]}
+            onValueChange={(v) => {
+              setPlaying(false);
+              setDirty(false);
+              setTime(clampTime(anchor + (Array.isArray(v) ? v[0] : v) * DAY));
+            }}
+          />
+          <div className="rail-labels">
+            <span>
+              {tr(
+                localInput(clampTime(anchor - span * DAY), offset).slice(0, 10),
+              )}
+            </span>
+            <button className="anchor-button" onClick={() => setAnchor(time)}>
+              {tr('現在の表示を中心に')}
+            </button>
+            <span>
+              {tr(
+                localInput(clampTime(anchor + span * DAY), offset).slice(0, 10),
+              )}
+            </span>
+          </div>
+        </div>
+        <div className="timeline-bottom">
+          <span className="section-note">
+            {tr('スライダーを動かして、過去と未来を探る。')}
+          </span>
+          <div className="range-control">
+            <span>{tr('時間幅')}</span>
+            <Choice
+              label={tr('スライダーの時間幅')}
+              value={String(span)}
+              onChange={(v) => {
+                setSpan(Number(v));
+                setAnchor(time);
+              }}
+              items={[
+                { value: '1', label: '±1日' },
+                { value: '30', label: '±30日' },
+                { value: '365', label: '±1年' },
+                { value: '3650', label: '±10年' },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
+      <section
+        hidden={liveMode}
+        className="conditions"
+        aria-label={tr('観測条件')}
+      >
+        <div className="condition-block">
+          <span className="eyebrow">01 / DATE & TIME</span>
+          <form onSubmit={applyDate}>
+            <label className="field">
+              <span>{tr('年月日・時刻')}</span>
+              <input
+                type="datetime-local"
+                step="1"
+                min="1800-01-01T00:00:00"
+                max="2200-12-31T23:59:59"
+                value={dateDraft}
+                onChange={(e) => {
+                  setDirty(true);
+                  setDateDraft(e.target.value);
+                  setPlaying(false);
+                }}
+                required
+              />
+            </label>
+            <label className="field offset-field">
+              <span>{tr('UTC差（時間）')}</span>
+              <input
+                type="number"
+                min="-12"
+                max="14"
+                step=".25"
+                value={offsetDraft}
+                onChange={(e) => setOffsetDraft(e.target.value)}
+              />
+            </label>
+            <button type="submit" className="apply-button">
+              {tr('適用')}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+          <p className="section-note">
+            {tr('当時の夏時間を含むUTC差を指定してください。')}
+          </p>
+        </div>
+        <div className="condition-block">
+          <span className="eyebrow">02 / OBSERVER</span>
+          <div className="location-preset">
+            <Choice
+              label={tr('観測地点のプリセット')}
+              value={preset}
+              onChange={(v) => {
+                const p = PLACES.find((p) => p.id === v);
+                if (p) {
+                  updateLocation(p.lat, p.lon);
+                }
+              }}
+              items={[
+                ...PLACES.map((p) => ({ value: p.id, label: p.name })),
+                { value: 'custom', label: '座標を指定' },
+              ]}
+            />
+            <span className="section-note">
+              {tr('地平線・アングルの基準地点')}
+            </span>
+          </div>
+          <form onSubmit={applyLocation}>
+            <label className="field">
+              <span>{tr('緯度（北＋）')}</span>
+              <input
+                type="number"
+                step="any"
+                min="-89"
+                max="89"
+                value={latDraft}
+                onChange={(e) => setLatDraft(e.target.value)}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>{tr('経度（東＋）')}</span>
+              <input
+                type="number"
+                step="any"
+                min="-180"
+                max="180"
+                value={lonDraft}
+                onChange={(e) => setLonDraft(e.target.value)}
+                required
+              />
+            </label>
+            <button className="apply-button" type="submit">
+              {tr('適用')}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+        </div>
+      </section>
+      <footer hidden={liveMode} className="privacy-footer">
+        <div>
+          <ShieldCheck size={17} />
+          <span>{tr('入力情報は端末内で処理')}</span>
+        </div>
+        <div className="save-options">
+          <Toggle
+            label={tr('このブラウザに表示設定を保存')}
+            value={savePreferences}
+            onChange={togglePreferenceSave}
+          />
+          <Toggle
+            label={tr('このブラウザに日時・地点を保存')}
+            value={persist}
+            onChange={toggleSave}
+          />
+        </div>
+        <span className="version">CELESTIAL / 1.3</span>
+        <div className="creator-credit">
+          <span>© 2026 Setsuna SHIROSAKI</span>
+          <span className="creator-roles">
+            {tr('企画・制作：Setsuna SHIROSAKI · AI開発支援：GPT-6 Astra')}
+          </span>
+          <a
+            href="/third-party-notices.txt"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {tr('使用ライブラリ・データの権利表記')}
+          </a>
+        </div>
+      </footer>
+      {tr(
+        message && (
+          <div role="status" className="notice">
+            <span>{tr(message)}</span>
+            <button
+              aria-label={tr('通知を閉じる')}
+              onClick={() => setMessage('')}
+            >
+              ×
+            </button>
+          </div>
+        ),
+      )}
+    </main>
+  );
 }

@@ -1,243 +1,851 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {JSDOM} from 'jsdom';
-import {build} from 'esbuild';
-import {mkdir,rm,readFile} from 'node:fs/promises';
-import {resolve} from 'node:path';
-import {pathToFileURL} from 'node:url';
-const rootPath=resolve('.');
-const dom=new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',{url:'https://celestial.test/',pretendToBeVisual:true});
-for(const key of ['window','document','HTMLElement','HTMLInputElement','Element','Node','Event','MouseEvent','KeyboardEvent','MutationObserver','DocumentFragment'])globalThis[key]=dom.window[key];
-Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
-globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);
-globalThis.requestAnimationFrame=fn=>setTimeout(()=>fn(performance.now()),5);
-globalThis.cancelAnimationFrame=clearTimeout;globalThis.localStorage=dom.window.localStorage;
-globalThis.ResizeObserver=class{observe(){} unobserve(){} disconnect(){}};
-window.ResizeObserver=globalThis.ResizeObserver; window.PointerEvent=window.MouseEvent; globalThis.PointerEvent=window.MouseEvent;
-window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
-globalThis.IS_REACT_ACT_ENVIRONMENT=true;
-const registered=new Map();
-document.modelContext={registerTool(tool,{signal}){registered.set(tool.name,tool);signal.addEventListener('abort',()=>registered.delete(tool.name));}};
-let fetches=0;globalThis.fetch=()=>{fetches++;throw Error('Unexpected network call');};
-const {act,createElement}=await import('react'),{createRoot}=await import('react-dom/client');
-await mkdir('.test-build',{recursive:true});
-await build({entryPoints:['app/observatory.tsx'],outfile:'.test-build/app.mjs',bundle:true,platform:'node',format:'esm',packages:'external',alias:{'@':rootPath},plugins:[{name:'scene-test-double',setup(b){b.onResolve({filter:/^\.\/sky$/},()=>({path:'sky',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'import React from "react"; export default function Sky(props){globalThis.__skyProps=props;return React.createElement("div",{"data-testid":"sky","data-flat":props.flat});}',loader:'js',resolveDir:rootPath}));}}]});
-const {default:Home}=await import(pathToFileURL(resolve('.test-build/app.mjs')).href);
+import { JSDOM } from 'jsdom';
+import { build } from 'esbuild';
+import { mkdir, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const rootPath = resolve('.');
+const dom = new JSDOM(
+  '<!doctype html><html><body><div id="root"></div></body></html>',
+  { url: 'https://celestial.test/', pretendToBeVisual: true },
+);
+for (const key of [
+  'window',
+  'document',
+  'HTMLElement',
+  'HTMLInputElement',
+  'Element',
+  'Node',
+  'Event',
+  'MouseEvent',
+  'KeyboardEvent',
+  'MutationObserver',
+  'DocumentFragment',
+])
+  globalThis[key] = dom.window[key];
+Object.defineProperty(globalThis, 'navigator', {
+  value: dom.window.navigator,
+  configurable: true,
+});
+globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+globalThis.requestAnimationFrame = (fn) =>
+  setTimeout(() => fn(performance.now()), 5);
+globalThis.cancelAnimationFrame = clearTimeout;
+globalThis.localStorage = dom.window.localStorage;
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+window.ResizeObserver = globalThis.ResizeObserver;
+window.PointerEvent = window.MouseEvent;
+globalThis.PointerEvent = window.MouseEvent;
+window.matchMedia = () => ({
+  matches: false,
+  addEventListener() {},
+  removeEventListener() {},
+});
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const registered = new Map();
+document.modelContext = {
+  registerTool(tool, { signal }) {
+    registered.set(tool.name, tool);
+    signal.addEventListener('abort', () => registered.delete(tool.name));
+  },
+};
+let fetches = 0;
+globalThis.fetch = () => {
+  fetches++;
+  throw Error('Unexpected network call');
+};
+const { act, createElement } = await import('react');
+const { createRoot } = await import('react-dom/client');
+await mkdir('.test-build', { recursive: true });
+await build({
+  entryPoints: ['app/observatory.tsx'],
+  outfile: '.test-build/app.mjs',
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  packages: 'external',
+  alias: { '@': rootPath },
+  plugins: [
+    {
+      name: 'scene-test-double',
+      setup(b) {
+        b.onResolve({ filter: /^\.\/sky$/ }, () => ({
+          path: 'sky',
+          namespace: 'test',
+        }));
+        b.onLoad({ filter: /.*/, namespace: 'test' }, () => ({
+          contents:
+            'import React from "react"; export default function Sky(props){globalThis.__skyProps=props;return React.createElement("div",{"data-testid":"sky","data-flat":props.flat});}',
+          loader: 'js',
+          resolveDir: rootPath,
+        }));
+      },
+    },
+  ],
+});
+const { default: Home } = await import(
+  pathToFileURL(resolve('.test-build/app.mjs')).href
+);
 let root;
-const flush=(ms=20)=>act(async()=>{await new Promise(r=>setTimeout(r,ms));});
-const click=async(el)=>{assert.ok(el,'control must exist');await act(async()=>{el.dispatchEvent(new MouseEvent('click',{bubbles:true}));});await flush();};
-const input=async(el,value)=>{await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});};
-const byLabel=label=>document.querySelector('[aria-label="'+label+'"]');
-const displayed=()=>Date.parse(document.querySelector('time').getAttribute('datetime'));
-const button=text=>Array.from(document.querySelectorAll('button')).find(e=>e.textContent.trim()===text);
-await test('interactive local app: time, playback, 2D/3D, aspects and storage',async()=>{
- root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- assert.ok(Math.abs(displayed()-Date.now())<3000);
- assert.equal(localStorage.length,0,'nothing saved by default');
- await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.flat,true);assert.equal(globalThis.__skyProps.houses2d,true);await click(byLabel('ハウス線'));assert.equal(globalThis.__skyProps.houses2d,false);await click(byLabel('ハウス線'));assert.equal(globalThis.__skyProps.houses2d,true);
- await click(button('3D 天球'));assert.equal(globalThis.__skyProps.flat,false);
- await click(document.querySelector('.planet-button'));assert.equal(globalThis.__skyProps.selected,'Sun');
- assert.ok(document.querySelector('.body-detail').textContent.includes('黄緯'));
- await input(document.querySelector('input[type="datetime-local"]'),'2000-02-29T12:30:00');
- await act(async()=>document.querySelector('.condition-block form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- assert.equal(new Date(displayed()).getUTCFullYear(),2000);
- const old=displayed();await click(byLabel('自動再生'));await flush(250);await click(byLabel('一時停止'));assert.ok(displayed()>old+3600000,'time advances during playback');
- const stopped=displayed();await flush(180);assert.equal(displayed(),stopped,'pause stops playback');
- await click(button('今'));assert.ok(Math.abs(displayed()-Date.now())<3000);
- await click(byLabel('1日前'));assert.ok(Math.abs(displayed()-(Date.now()-86400000))<3000);
- await click(byLabel('1日後'));assert.ok(Math.abs(displayed()-Date.now())<3000);
- const tool=registered.get('set_observation_time');assert.ok(tool);assert.equal(tool.annotations.readOnlyHint,false);
- let toolResult;await act(async()=>{toolResult=await tool.execute({datetime:'1990-01-01T00:00:00Z'});});await flush();
- assert.equal(displayed(),Date.parse('1990-01-01T00:00:00Z'));assert.equal(toolResult.storage,'local browser only');
- const beforeInvalid=displayed();await assert.rejects(()=>tool.execute({datetime:'not-a-date'}));assert.equal(displayed(),beforeInvalid);
- await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);
- assert.equal(JSON.parse(localStorage.getItem('celestial.observatory.v1')).time,displayed());
- await click(byLabel('このブラウザに日時・地点を保存'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
- assert.equal(fetches,0,'interactions do not send data');
- await act(async()=>root.unmount());assert.equal(registered.size,0,'WebMCP unregistered');
+const flush = (ms = 20) =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+const click = async (el) => {
+  assert.ok(el, 'control must exist');
+  await act(async () => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await flush();
+};
+const input = async (el, value) => {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    ).set.call(el, value);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+};
+const byLabel = (label) =>
+  document.querySelector('[aria-label="' + label + '"]');
+const displayed = () =>
+  Date.parse(document.querySelector('time').getAttribute('datetime'));
+const button = (text) =>
+  Array.from(document.querySelectorAll('button')).find(
+    (e) => e.textContent.trim() === text,
+  );
+await test('interactive local app: time, playback, 2D/3D, aspects and storage', async () => {
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  assert.ok(Math.abs(displayed() - Date.now()) < 3000);
+  assert.equal(localStorage.length, 0, 'nothing saved by default');
+  await click(button('2D ホロスコープ'));
+  assert.equal(globalThis.__skyProps.flat, true);
+  assert.equal(globalThis.__skyProps.houses2d, true);
+  await click(byLabel('ハウス線'));
+  assert.equal(globalThis.__skyProps.houses2d, false);
+  await click(byLabel('ハウス線'));
+  assert.equal(globalThis.__skyProps.houses2d, true);
+  await click(button('3D 天球'));
+  assert.equal(globalThis.__skyProps.flat, false);
+  await click(document.querySelector('.planet-button'));
+  assert.equal(globalThis.__skyProps.selected, 'Sun');
+  assert.ok(
+    document.querySelector('.body-detail').textContent.includes('黄緯'),
+  );
+  await input(
+    document.querySelector('input[type="datetime-local"]'),
+    '2000-02-29T12:30:00',
+  );
+  await act(async () =>
+    document
+      .querySelector('.condition-block form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  assert.equal(new Date(displayed()).getUTCFullYear(), 2000);
+  const old = displayed();
+  await click(byLabel('自動再生'));
+  await flush(250);
+  await click(byLabel('一時停止'));
+  assert.ok(displayed() > old + 3600000, 'time advances during playback');
+  const stopped = displayed();
+  await flush(180);
+  assert.equal(displayed(), stopped, 'pause stops playback');
+  await click(button('今'));
+  assert.ok(Math.abs(displayed() - Date.now()) < 3000);
+  await click(byLabel('1日前'));
+  assert.ok(Math.abs(displayed() - (Date.now() - 86400000)) < 3000);
+  await click(byLabel('1日後'));
+  assert.ok(Math.abs(displayed() - Date.now()) < 3000);
+  const tool = registered.get('set_observation_time');
+  assert.ok(tool);
+  assert.equal(tool.annotations.readOnlyHint, false);
+  let toolResult;
+  await act(async () => {
+    toolResult = await tool.execute({ datetime: '1990-01-01T00:00:00Z' });
+  });
+  await flush();
+  assert.equal(displayed(), Date.parse('1990-01-01T00:00:00Z'));
+  assert.equal(toolResult.storage, 'local browser only');
+  const beforeInvalid = displayed();
+  await assert.rejects(() => tool.execute({ datetime: 'not-a-date' }));
+  assert.equal(displayed(), beforeInvalid);
+  await click(byLabel('このブラウザに日時・地点を保存'));
+  await flush(600);
+  assert.equal(
+    JSON.parse(localStorage.getItem('celestial.observatory.v1')).time,
+    displayed(),
+  );
+  await click(byLabel('このブラウザに日時・地点を保存'));
+  assert.equal(localStorage.getItem('celestial.observatory.v1'), null);
+  assert.equal(fetches, 0, 'interactions do not send data');
+  await act(async () => root.unmount());
+  assert.equal(registered.size, 0, 'WebMCP unregistered');
 });
-await test('corrupt saved data is ignored without breaking the app',async()=>{
- localStorage.setItem('celestial.observatory.v1','{broken');
- root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- assert.ok(Number.isFinite(displayed()));assert.ok(document.querySelector('[role="status"]'));
- await act(async()=>root.unmount());localStorage.clear();
-});
-
-await test('extended controls update aspects, individual asteroids and a private birth form',async()=>{
- const calls=[];const raw=await readFile('public/ephemeris/asteroids.bin');
- globalThis.fetch=async(url,options)=>{calls.push({url,options});assert.equal(options.referrerPolicy,'no-referrer');assert.ok(!options.body);
-  if(url==='/ephemeris/asteroids.bin')return {ok:true,arrayBuffer:async()=>raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)};
-  if(url==='/data/cities.json')return {ok:true,json:async()=>[{id:'tokyo',name:'Tokyo',ascii:'Tokyo',aliases:['東京'],country:'JP',region:'Tokyo',lat:35.68,lon:139.69,zone:'Asia/Tokyo',population:10000000}]};
-  throw Error('Unexpected URL '+url);
- };
- root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- await click(byLabel('アスペクトライン'));assert.equal(globalThis.__skyProps.aspects,false);
- await click(byLabel('アスペクトライン'));assert.equal(globalThis.__skyProps.aspects,true);
- await click(byLabel('マイナー表示'));assert.equal(byLabel('マイナー表示').getAttribute('aria-checked'),'true');
- await click(document.querySelector('.network-button'));
- await input(byLabel('セミセクスタイルのオーブ'),'1.5');
- await click(byLabel('セレス / 1'));await flush(80);
- assert.equal(globalThis.__skyProps.chart.bodies.length,15);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
- await click(byLabel('パラス / 2'));await flush();assert.equal(globalThis.__skyProps.chart.bodies.length,16);
- await click(byLabel('セレス / 1'));assert.equal(globalThis.__skyProps.chart.bodies.length,15);assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));
- await click(byLabel('複合アスペクト'));await click(byLabel('ヨッド'));assert.equal(byLabel('ヨッド').getAttribute('aria-checked'),'false');
- await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await click(document.querySelector('.birth-trigger'));await flush(50);
- await input(byLabel('生年月日'),'2000-02-29');await input(byLabel('出生時刻'),'12:30:00');
- await input(byLabel('出生都市を検索'),'東京');await click(document.querySelector('.city-results button'));
- await act(async()=>document.querySelector('.birth-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush(150);
- assert.equal(displayed(),Date.parse('2000-02-29T03:30:00Z'));
- assert.equal(globalThis.__skyProps.chart.bodies.length,15);
- assert.equal(localStorage.length,0,'birth data is not saved by default');
- assert.deepEqual(calls.map(c=>c.url),['/ephemeris/asteroids.bin','/data/cities.json'],'only fixed same-site assets are requested, without birth parameters');
- await act(async()=>root.unmount());
-});
-
-await test('ground controls, point visibility and opt-in GPS keep location private',async()=>{
- let gpsCalls=0,pending;const requests=[];globalThis.fetch=async(...args)=>{requests.push(args);throw Error('Unexpected request');};
- Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){gpsCalls++;pending={ok,fail,options};}}});
- localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- assert.equal(gpsCalls,0,'GPS never starts on page load');assert.ok(!document.body.textContent.includes('空を、立体で読み解く。'));
- await click(button('地上視点'));assert.equal(globalThis.__skyProps.observer,true);assert.equal(globalThis.__skyProps.flat,false);
- assert.equal(globalThis.__skyProps.showBelowHorizon,true);assert.equal(byLabel('地平線下も表示').getAttribute('aria-checked'),'true');
- await click(byLabel('地平線下も表示'));assert.equal(globalThis.__skyProps.showBelowHorizon,false);
- await click(byLabel('地平線下も表示'));assert.equal(globalThis.__skyProps.showBelowHorizon,true);
- await click(byLabel('西を向く'));assert.equal(globalThis.__skyProps.heading,270);
- const oldLevel=globalThis.__skyProps.level;await click(button('地平線を水平に'));assert.equal(globalThis.__skyProps.level,oldLevel+1);
- await click(document.querySelector('.network-button'));
- for(const id of ['NorthNode','SouthNode','Vertex','TrueLilith'])assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id===id));
- await click(byLabel('ドラゴンヘッド・テイル'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'||b.id==='SouthNode'));
- await click(byLabel('バーテックス'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='Vertex'));
- const lilith=globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith');assert.ok(lilith&&Math.abs(lilith.lat)>0);assert.equal(lilith.kind,'point');
- await click(byLabel('リリス（真位置）'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>e.a!=='TrueLilith'&&e.b!=='TrueLilith'));
- await click(byLabel('リリス（真位置）'));assert.deepEqual(globalThis.__skyProps.chart.bodies.find(b=>b.id==='TrueLilith'),lilith);
- await click(byLabel('月の軌道面'));assert.equal(globalThis.__skyProps.nodeOrbit,false);
- await click(byLabel('卯酉線（バーテックスの基準）'));assert.equal(globalThis.__skyProps.primeVertical,false);
- await click(byLabel('感受点の移動軌跡'));assert.equal(globalThis.__skyProps.trails,true);assert.equal(globalThis.__skyProps.chart.pointTrails.length,3);
- await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- const beforeTime=displayed();await click(button('現在地を取得（GPS）'));assert.equal(gpsCalls,1);assert.equal(pending.options.enableHighAccuracy,true);assert.equal(pending.options.maximumAge,0);
- await act(async()=>pending.ok({coords:{latitude:-33.8688,longitude:151.2093,accuracy:12}}));await flush();
- assert.equal(displayed(),beforeTime,'GPS does not replace observation time');
- assert.equal(document.querySelector('input[min="-89"]').value,'-33.8688');assert.equal(document.querySelector('input[min="-180"]').value,'151.2093');
- assert.equal(localStorage.length,0);assert.equal(requests.length,0);
- await click(button('現在地を取得（GPS）'));await act(async()=>pending.fail({code:1}));await flush();assert.match(document.querySelector('.notice').textContent,/許可/);
- assert.equal(document.querySelector('input[min="-89"]').value,'-33.8688','denial leaves location unchanged');
- await click(button('現在地を取得（GPS）'));await act(async()=>pending.fail({code:3}));await flush();assert.match(document.querySelector('.notice').textContent,/タイムアウト/);
- await act(async()=>root.unmount());delete navigator.geolocation;
-});
-await test('point aspect toggle preserves visible points and filters ordinary and compound networks',async()=>{
- localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- await act(async()=>registered.get('set_observation_time').execute({datetime:'2026-01-01T00:00:00Z'}));await flush();
- await click(byLabel('マイナー表示'));await click(byLabel('複合表示'));
- const original=globalThis.__skyProps.chart;
- const pointIds=new Set(original.bodies.filter(b=>b.kind==='point').map(b=>b.id));
- const involvesPoint=e=>pointIds.has(e.a)||pointIds.has(e.b);
- assert.equal(pointIds.size,4);assert.ok(original.aspects.some(involvesPoint));assert.ok(original.patternEdges.some(involvesPoint));
- assert.ok(!original.aspects.some(e=>[e.a,e.b].includes('NorthNode')&&[e.a,e.b].includes('SouthNode')));
- await click(byLabel('感受点をアスペクトに含める'));
- assert.equal(byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),'false');
- const filtered=globalThis.__skyProps.chart;
- assert.deepEqual(filtered.bodies,original.bodies,'all markers and coordinates remain');
- assert.deepEqual(filtered.aspects,original.aspects.filter(e=>!involvesPoint(e)),'planet aspects unchanged');
- assert.ok(!filtered.patternEdges.some(involvesPoint),'compound network also excludes points');
- await click(document.querySelector('.network-button'));
- const dialog=document.querySelector('[role="dialog"]');
- const toggle=dialog.querySelector('[aria-label="感受点をアスペクトに含める"]');assert.equal(toggle.getAttribute('aria-checked'),'false');
- await click(toggle);assert.deepEqual(globalThis.__skyProps.chart.aspects,original.aspects);assert.deepEqual(globalThis.__skyProps.chart.patternEdges,original.patternEdges);
- await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- assert.equal(byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),'true','both controls share state');
- await act(async()=>root.unmount());
+await test('corrupt saved data is ignored without breaking the app', async () => {
+  localStorage.setItem('celestial.observatory.v1', '{broken');
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  assert.ok(Number.isFinite(displayed()));
+  assert.ok(document.querySelector('[role="status"]'));
+  await act(async () => root.unmount());
+  localStorage.clear();
 });
 
-await test('live focus follows wall time each second and restores the chart without overwriting saved birth data',async()=>{
- const realNow=Date.now;let now=Date.UTC(2026,8,10,12,34,56);Date.now=()=>now;
- let requests=0;globalThis.fetch=async()=>{requests++;throw Error('Unexpected request');};
- localStorage.clear();root=createRoot(document.getElementById('root'));
- try{
-  await act(async()=>root.render(createElement(Home)));await flush();
-  await act(async()=>registered.get('set_observation_time').execute({datetime:'1990-01-01T00:00:00Z'}));await flush();
-  await click(button('2D ホロスコープ'));await click(document.querySelector('.planet-button'));
-  await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);
-  const saved=localStorage.getItem('celestial.observatory.v1'),original=globalThis.__skyProps.chart.time;
+await test('extended controls update aspects, individual asteroids and a private birth form', async () => {
+  const calls = [];
+  const raw = await readFile('public/ephemeris/asteroids.bin');
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    assert.equal(options.referrerPolicy, 'no-referrer');
+    assert.ok(!options.body);
+    if (url === '/ephemeris/asteroids.bin')
+      return {
+        ok: true,
+        arrayBuffer: async () =>
+          raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
+      };
+    if (url === '/data/cities.json')
+      return {
+        ok: true,
+        json: async () => [
+          {
+            id: 'tokyo',
+            name: 'Tokyo',
+            ascii: 'Tokyo',
+            aliases: ['東京'],
+            country: 'JP',
+            region: 'Tokyo',
+            lat: 35.68,
+            lon: 139.69,
+            zone: 'Asia/Tokyo',
+            population: 10000000,
+          },
+        ],
+      };
+    throw Error('Unexpected URL ' + url);
+  };
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  await click(byLabel('アスペクトライン'));
+  assert.equal(globalThis.__skyProps.aspects, false);
+  await click(byLabel('アスペクトライン'));
+  assert.equal(globalThis.__skyProps.aspects, true);
+  await click(byLabel('マイナー表示'));
+  assert.equal(byLabel('マイナー表示').getAttribute('aria-checked'), 'true');
+  await click(document.querySelector('.network-button'));
+  await input(byLabel('セミセクスタイルのオーブ'), '1.5');
+  await click(byLabel('セレス / 1'));
+  await flush(80);
+  assert.equal(globalThis.__skyProps.chart.bodies.length, 15);
+  assert.ok(globalThis.__skyProps.chart.bodies.some((b) => b.id === 'Ceres'));
+  await click(byLabel('パラス / 2'));
+  await flush();
+  assert.equal(globalThis.__skyProps.chart.bodies.length, 16);
+  await click(byLabel('セレス / 1'));
+  assert.equal(globalThis.__skyProps.chart.bodies.length, 15);
+  assert.ok(!globalThis.__skyProps.chart.bodies.some((b) => b.id === 'Ceres'));
+  await click(byLabel('複合アスペクト'));
+  await click(byLabel('ヨッド'));
+  assert.equal(byLabel('ヨッド').getAttribute('aria-checked'), 'false');
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await click(document.querySelector('.birth-trigger'));
+  await flush(50);
+  await input(byLabel('生年月日'), '2000-02-29');
+  await input(byLabel('出生時刻'), '12:30:00');
+  await input(byLabel('出生都市を検索'), '東京');
+  await click(document.querySelector('.city-results button'));
+  await act(async () =>
+    document
+      .querySelector('.birth-form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  await flush(150);
+  assert.equal(displayed(), Date.parse('2000-02-29T03:30:00Z'));
+  assert.equal(globalThis.__skyProps.chart.bodies.length, 15);
+  assert.equal(localStorage.length, 0, 'birth data is not saved by default');
+  assert.deepEqual(
+    calls.map((c) => c.url),
+    ['/ephemeris/asteroids.bin', '/data/cities.json'],
+    'only fixed same-site assets are requested, without birth parameters',
+  );
+  await act(async () => root.unmount());
+});
+
+await test('ground controls, point visibility and opt-in GPS keep location private', async () => {
+  let gpsCalls = 0;
+  let pending;
+  const requests = [];
+  globalThis.fetch = async (...args) => {
+    requests.push(args);
+    throw Error('Unexpected request');
+  };
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: {
+      getCurrentPosition(ok, fail, options) {
+        gpsCalls++;
+        pending = { ok, fail, options };
+      },
+    },
+  });
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  assert.equal(gpsCalls, 0, 'GPS never starts on page load');
+  assert.ok(!document.body.textContent.includes('空を、立体で読み解く。'));
+  await click(button('地上視点'));
+  assert.equal(globalThis.__skyProps.observer, true);
+  assert.equal(globalThis.__skyProps.flat, false);
+  assert.equal(globalThis.__skyProps.showBelowHorizon, true);
+  assert.equal(byLabel('地平線下も表示').getAttribute('aria-checked'), 'true');
+  await click(byLabel('地平線下も表示'));
+  assert.equal(globalThis.__skyProps.showBelowHorizon, false);
+  await click(byLabel('地平線下も表示'));
+  assert.equal(globalThis.__skyProps.showBelowHorizon, true);
+  await click(byLabel('西を向く'));
+  assert.equal(globalThis.__skyProps.heading, 270);
+  const oldLevel = globalThis.__skyProps.level;
+  await click(button('地平線を水平に'));
+  assert.equal(globalThis.__skyProps.level, oldLevel + 1);
+  await click(document.querySelector('.network-button'));
+  for (const id of ['NorthNode', 'SouthNode', 'Vertex', 'TrueLilith'])
+    assert.ok(globalThis.__skyProps.chart.bodies.some((b) => b.id === id));
+  await click(byLabel('ドラゴンヘッド・テイル'));
+  assert.ok(
+    !globalThis.__skyProps.chart.bodies.some(
+      (b) => b.id === 'NorthNode' || b.id === 'SouthNode',
+    ),
+  );
+  await click(byLabel('バーテックス'));
+  assert.ok(!globalThis.__skyProps.chart.bodies.some((b) => b.id === 'Vertex'));
+  const lilith = globalThis.__skyProps.chart.bodies.find(
+    (b) => b.id === 'TrueLilith',
+  );
+  assert.ok(lilith && Math.abs(lilith.lat) > 0);
+  assert.equal(lilith.kind, 'point');
+  await click(byLabel('リリス（真位置）'));
+  assert.ok(
+    !globalThis.__skyProps.chart.bodies.some((b) => b.id === 'TrueLilith'),
+  );
+  assert.ok(
+    globalThis.__skyProps.chart.aspects.every(
+      (e) => e.a !== 'TrueLilith' && e.b !== 'TrueLilith',
+    ),
+  );
+  await click(byLabel('リリス（真位置）'));
+  assert.deepEqual(
+    globalThis.__skyProps.chart.bodies.find((b) => b.id === 'TrueLilith'),
+    lilith,
+  );
+  await click(byLabel('月の軌道面'));
+  assert.equal(globalThis.__skyProps.nodeOrbit, false);
+  await click(byLabel('卯酉線（バーテックスの基準）'));
+  assert.equal(globalThis.__skyProps.primeVertical, false);
+  await click(byLabel('感受点の移動軌跡'));
+  assert.equal(globalThis.__skyProps.trails, true);
+  assert.equal(globalThis.__skyProps.chart.pointTrails.length, 3);
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  const beforeTime = displayed();
+  await click(button('現在地を取得（GPS）'));
+  assert.equal(gpsCalls, 1);
+  assert.equal(pending.options.enableHighAccuracy, true);
+  assert.equal(pending.options.maximumAge, 0);
+  await act(async () =>
+    pending.ok({
+      coords: { latitude: -33.8688, longitude: 151.2093, accuracy: 12 },
+    }),
+  );
+  await flush();
+  assert.equal(
+    displayed(),
+    beforeTime,
+    'GPS does not replace observation time',
+  );
+  assert.equal(document.querySelector('input[min="-89"]').value, '-33.8688');
+  assert.equal(document.querySelector('input[min="-180"]').value, '151.2093');
+  assert.equal(localStorage.length, 0);
+  assert.equal(requests.length, 0);
+  await click(button('現在地を取得（GPS）'));
+  await act(async () => pending.fail({ code: 1 }));
+  await flush();
+  assert.match(document.querySelector('.notice').textContent, /許可/);
+  assert.equal(
+    document.querySelector('input[min="-89"]').value,
+    '-33.8688',
+    'denial leaves location unchanged',
+  );
+  await click(button('現在地を取得（GPS）'));
+  await act(async () => pending.fail({ code: 3 }));
+  await flush();
+  assert.match(document.querySelector('.notice').textContent, /タイムアウト/);
+  await act(async () => root.unmount());
+  delete navigator.geolocation;
+});
+await test('point aspect toggle preserves visible points and filters ordinary and compound networks', async () => {
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  await act(async () =>
+    registered
+      .get('set_observation_time')
+      .execute({ datetime: '2026-01-01T00:00:00Z' }),
+  );
+  await flush();
+  await click(byLabel('マイナー表示'));
+  await click(byLabel('複合表示'));
+  const original = globalThis.__skyProps.chart;
+  const pointIds = new Set(
+    original.bodies.filter((b) => b.kind === 'point').map((b) => b.id),
+  );
+  const involvesPoint = (e) => pointIds.has(e.a) || pointIds.has(e.b);
+  assert.equal(pointIds.size, 4);
+  assert.ok(original.aspects.some(involvesPoint));
+  assert.ok(original.patternEdges.some(involvesPoint));
+  assert.ok(
+    !original.aspects.some(
+      (e) =>
+        [e.a, e.b].includes('NorthNode') && [e.a, e.b].includes('SouthNode'),
+    ),
+  );
+  await click(byLabel('感受点をアスペクトに含める'));
+  assert.equal(
+    byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),
+    'false',
+  );
+  const filtered = globalThis.__skyProps.chart;
+  assert.deepEqual(
+    filtered.bodies,
+    original.bodies,
+    'all markers and coordinates remain',
+  );
+  assert.deepEqual(
+    filtered.aspects,
+    original.aspects.filter((e) => !involvesPoint(e)),
+    'planet aspects unchanged',
+  );
+  assert.ok(
+    !filtered.patternEdges.some(involvesPoint),
+    'compound network also excludes points',
+  );
+  await click(document.querySelector('.network-button'));
+  const dialog = document.querySelector('[role="dialog"]');
+  const toggle = dialog.querySelector(
+    '[aria-label="感受点をアスペクトに含める"]',
+  );
+  assert.equal(toggle.getAttribute('aria-checked'), 'false');
+  await click(toggle);
+  assert.deepEqual(globalThis.__skyProps.chart.aspects, original.aspects);
+  assert.deepEqual(
+    globalThis.__skyProps.chart.patternEdges,
+    original.patternEdges,
+  );
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  assert.equal(
+    byLabel('感受点をアスペクトに含める').getAttribute('aria-checked'),
+    'true',
+    'both controls share state',
+  );
+  await act(async () => root.unmount());
+});
+
+await test('live focus follows wall time each second and restores the chart without overwriting saved birth data', async () => {
+  const realNow = Date.now;
+  let now = Date.UTC(2026, 8, 10, 12, 34, 56);
+  Date.now = () => now;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    throw Error('Unexpected request');
+  };
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () => root.render(createElement(Home)));
+    await flush();
+    await act(async () =>
+      registered
+        .get('set_observation_time')
+        .execute({ datetime: '1990-01-01T00:00:00Z' }),
+    );
+    await flush();
+    await click(button('2D ホロスコープ'));
+    await click(document.querySelector('.planet-button'));
+    await click(byLabel('このブラウザに日時・地点を保存'));
+    await flush(600);
+    const saved = localStorage.getItem('celestial.observatory.v1');
+    const original = globalThis.__skyProps.chart.time;
+    await click(button('今の星を眺める'));
+    assert.equal(globalThis.__skyProps.focus, true);
+    assert.equal(globalThis.__skyProps.flat, false);
+    assert.equal(globalThis.__skyProps.playing, false);
+    assert.equal(globalThis.__skyProps.chart.time, now);
+    assert.equal(globalThis.__skyProps.autoRotate, true);
+    assert.ok(
+      document.querySelector('.telemetry').hidden &&
+        document.querySelector('.timeline').hidden,
+    );
+    assert.equal(document.activeElement, byLabel('眺めるモードを終了'));
+    now += 1000;
+    await flush(1100);
+    assert.equal(
+      globalThis.__skyProps.chart.time,
+      now,
+      'one second real-time advancement',
+    );
+    assert.equal(localStorage.getItem('celestial.observatory.v1'), saved);
+    await click(byLabel('天球の自動回転を止める'));
+    assert.equal(globalThis.__skyProps.autoRotate, false);
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: true,
+    });
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    now += 3600000;
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: false,
+    });
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    assert.equal(
+      globalThis.__skyProps.chart.time,
+      now,
+      'resume resynchronizes wall time',
+    );
+    await click(byLabel('眺めるモードを終了'));
+    assert.equal(globalThis.__skyProps.focus, false);
+    assert.equal(globalThis.__skyProps.flat, true);
+    assert.equal(globalThis.__skyProps.selected, 'Sun');
+    assert.equal(globalThis.__skyProps.chart.time, original);
+    assert.equal(document.activeElement, button('今の星を眺める'));
+    await click(button('今の星を眺める'));
+    await act(async () =>
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      ),
+    );
+    await flush();
+    assert.equal(globalThis.__skyProps.focus, false);
+    assert.equal(globalThis.__skyProps.chart.time, original);
+    assert.equal(localStorage.getItem('celestial.observatory.v1'), saved);
+    assert.equal(requests, 0);
+  } finally {
+    await act(async () => root.unmount());
+    Date.now = realNow;
+    delete document.hidden;
+    localStorage.clear();
+  }
+});
+
+await test('theme selection reaches portals, live viewing and restored observation time without saving location', async () => {
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  const choose = async (label, value) => {
+    const el = byLabel(label);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value',
+      ).set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+  };
+  assert.equal(document.documentElement.dataset.theme, 'dark');
+  await choose('テーマ', 'light');
+  assert.equal(document.documentElement.dataset.scheme, 'light');
+  assert.equal(document.documentElement.classList.contains('dark'), false);
+  assert.equal(globalThis.__skyProps.theme, 'light');
+  await click(document.querySelector('.network-button'));
+  assert.ok(document.querySelector('.network-dialog'));
+  assert.equal(document.documentElement.dataset.scheme, 'light');
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await choose('テーマ', 'sky');
+  const time = globalThis.__skyProps.chart.time;
   await click(button('今の星を眺める'));
-  assert.equal(globalThis.__skyProps.focus,true);assert.equal(globalThis.__skyProps.flat,false);assert.equal(globalThis.__skyProps.playing,false);assert.equal(globalThis.__skyProps.chart.time,now);assert.equal(globalThis.__skyProps.autoRotate,true);
-  assert.ok(document.querySelector('.telemetry').hidden&&document.querySelector('.timeline').hidden);assert.equal(document.activeElement,byLabel('眺めるモードを終了'));
-  now+=1000;await flush(1100);assert.equal(globalThis.__skyProps.chart.time,now,'one second real-time advancement');assert.equal(localStorage.getItem('celestial.observatory.v1'),saved);
-  await click(byLabel('天球の自動回転を止める'));assert.equal(globalThis.__skyProps.autoRotate,false);
-  Object.defineProperty(document,'hidden',{configurable:true,value:true});await act(async()=>document.dispatchEvent(new Event('visibilitychange')));
-  now+=3600000;Object.defineProperty(document,'hidden',{configurable:true,value:false});await act(async()=>document.dispatchEvent(new Event('visibilitychange')));assert.equal(globalThis.__skyProps.chart.time,now,'resume resynchronizes wall time');
-  await click(byLabel('眺めるモードを終了'));assert.equal(globalThis.__skyProps.focus,false);assert.equal(globalThis.__skyProps.flat,true);assert.equal(globalThis.__skyProps.selected,'Sun');assert.equal(globalThis.__skyProps.chart.time,original);assert.equal(document.activeElement,button('今の星を眺める'));
-  await click(button('今の星を眺める'));await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));await flush();assert.equal(globalThis.__skyProps.focus,false);assert.equal(globalThis.__skyProps.chart.time,original);
-  assert.equal(localStorage.getItem('celestial.observatory.v1'),saved);assert.equal(requests,0);
- }finally{await act(async()=>root.unmount());Date.now=realNow;delete document.hidden;localStorage.clear();}
+  assert.equal(globalThis.__skyProps.theme, 'sky');
+  await choose('眺めるモードのテーマ', 'dark');
+  assert.equal(globalThis.__skyProps.focus, true);
+  assert.equal(globalThis.__skyProps.theme, 'dark');
+  await click(byLabel('眺めるモードを終了'));
+  assert.equal(globalThis.__skyProps.chart.time, time);
+  assert.equal(byLabel('テーマ').value, 'dark');
+  assert.equal(localStorage.length, 0);
+  await act(async () => root.unmount());
 });
 
-await test('theme selection reaches portals, live viewing and restored observation time without saving location',async()=>{
- localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- assert.equal(document.documentElement.dataset.theme,'dark');
- await choose('テーマ','light');assert.equal(document.documentElement.dataset.scheme,'light');assert.equal(document.documentElement.classList.contains('dark'),false);assert.equal(globalThis.__skyProps.theme,'light');
- await click(document.querySelector('.network-button'));assert.ok(document.querySelector('.network-dialog'));assert.equal(document.documentElement.dataset.scheme,'light');await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await choose('テーマ','sky');const time=globalThis.__skyProps.chart.time;await click(button('今の星を眺める'));assert.equal(globalThis.__skyProps.theme,'sky');
- await choose('眺めるモードのテーマ','dark');assert.equal(globalThis.__skyProps.focus,true);assert.equal(globalThis.__skyProps.theme,'dark');
- await click(byLabel('眺めるモードを終了'));assert.equal(globalThis.__skyProps.chart.time,time);assert.equal(byLabel('テーマ').value,'dark');assert.equal(localStorage.length,0);
- await act(async()=>root.unmount());
+await test('house selector retains the system and explains polar Placidus failure', async () => {
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  const choose = async (value) => {
+    const el = byLabel('ハウス方式');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value',
+      ).set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+  };
+  assert.equal(byLabel('ハウス方式').options.length, 7);
+  for (const system of ['koch', 'regiomontanus', 'porphyry', 'placidus']) {
+    await choose(system);
+    assert.equal(globalThis.__skyProps.houseSystem, system);
+  }
+  await click(button('2D ホロスコープ'));
+  assert.equal(globalThis.__skyProps.houseSystem, 'placidus');
+  await input(document.querySelector('input[min="-89"]'), '78');
+  await act(async () =>
+    document
+      .querySelectorAll('.condition-block form')[1]
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  await flush();
+  assert.match(
+    document.querySelector('.house-warning').textContent,
+    /プラシーダス/,
+  );
+  assert.equal(byLabel('ハウス方式').value, 'placidus');
+  await choose('campanus');
+  assert.equal(document.querySelector('.house-warning'), null);
+  assert.equal(globalThis.__skyProps.houseSystem, 'campanus');
+  await click(button('3D 天球'));
+  await click(byLabel('3Dハウス線'));
+  assert.equal(globalThis.__skyProps.houses, true);
+  assert.equal(globalThis.__skyProps.houseSystem, 'campanus');
+  await act(async () => root.unmount());
 });
 
-await test('house selector retains the system and explains polar Placidus failure',async()=>{
- localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- const choose=async(value)=>{const el=byLabel('ハウス方式');await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- assert.equal(byLabel('ハウス方式').options.length,7);for(const system of ['koch','regiomontanus','porphyry','placidus']){await choose(system);assert.equal(globalThis.__skyProps.houseSystem,system);}
- await click(button('2D ホロスコープ'));assert.equal(globalThis.__skyProps.houseSystem,'placidus');
- await input(document.querySelector('input[min="-89"]'),'78');await act(async()=>document.querySelectorAll('.condition-block form')[1].dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush();
- assert.match(document.querySelector('.house-warning').textContent,/プラシーダス/);assert.equal(byLabel('ハウス方式').value,'placidus');
- await choose('campanus');assert.equal(document.querySelector('.house-warning'),null);assert.equal(globalThis.__skyProps.houseSystem,'campanus');
- await click(button('3D 天球'));await click(byLabel('3Dハウス線'));assert.equal(globalThis.__skyProps.houses,true);assert.equal(globalThis.__skyProps.houseSystem,'campanus');
- await act(async()=>root.unmount());
+await test('display preferences round-trip independently of birth data and preserve Lilith visibility when switching type', async () => {
+  localStorage.clear();
+  const { defaultPreferences } = await import('../lib/preferences.mjs');
+  const initial = {
+    ...defaultPreferences(),
+    dimBack: true,
+    theme: 'light',
+    speed: 7,
+    houseSystem: 'campanus',
+    houses: true,
+    minor: true,
+    compound: true,
+    asteroids: ['Ceres'],
+    lilithType: 'mean',
+  };
+  initial.aspectSettings[30] = { enabled: false, orb: 1.5 };
+  initial.patternTypes = ['yod'];
+  localStorage.setItem('celestial.preferences.v1', JSON.stringify(initial));
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush(80);
+  const choose = async (label, value) => {
+    const el = byLabel(label);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value',
+      ).set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+  };
+  assert.equal(globalThis.__skyProps.dimBack, true);
+  assert.equal(globalThis.__skyProps.theme, 'light');
+  assert.equal(globalThis.__skyProps.houseSystem, 'campanus');
+  assert.equal(globalThis.__skyProps.houses, true);
+  assert.match(byLabel('再生速度').textContent, /1週/);
+  assert.equal(globalThis.__skyProps.playing, false);
+  assert.ok(globalThis.__skyProps.chart.bodies.some((b) => b.id === 'Ceres'));
+  assert.ok(
+    globalThis.__skyProps.chart.bodies.some((b) => b.id === 'MeanLilith'),
+  );
+  assert.equal(localStorage.getItem('celestial.observatory.v1'), null);
+  await choose('テーマ', 'sky');
+  await click(byLabel('3Dハウス線'));
+  await click(document.querySelector('.network-button'));
+  assert.equal(byLabel('セミセクスタイルのオーブ').value, '1.5');
+  assert.equal(
+    byLabel('セミセクスタイル 30°').getAttribute('aria-checked'),
+    'false',
+  );
+  await input(byLabel('セミセクスタイルのオーブ'), '3.5');
+  await click(byLabel('感受点をアスペクトに含める'));
+  await click(byLabel('リリス（平均位置）'));
+  await choose('リリスの種類', 'true');
+  assert.ok(
+    !globalThis.__skyProps.chart.bodies.some(
+      (b) => b.id === 'TrueLilith' || b.id === 'MeanLilith',
+    ),
+    'switching type preserves hidden state',
+  );
+  await click(byLabel('リリス（真位置）'));
+  assert.ok(
+    globalThis.__skyProps.chart.bodies.some((b) => b.id === 'TrueLilith'),
+  );
+  assert.ok(
+    globalThis.__skyProps.chart.aspects.every(
+      (e) =>
+        !['TrueLilith', 'NorthNode', 'SouthNode', 'Vertex'].includes(e.a) &&
+        !['TrueLilith', 'NorthNode', 'SouthNode', 'Vertex'].includes(e.b),
+    ),
+  );
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  assert.equal(globalThis.__skyProps.theme, 'sky');
+  assert.equal(globalThis.__skyProps.houses, false);
+  assert.ok(
+    globalThis.__skyProps.chart.bodies.some((b) => b.id === 'TrueLilith'),
+  );
+  const stored = JSON.parse(localStorage.getItem('celestial.preferences.v1'));
+  assert.equal(stored.aspectSettings[30].orb, 3.5);
+  assert.equal(stored.includePoints, false);
+  assert.equal(stored.lilithType, 'true');
+  assert.ok(!('time' in stored));
+  await click(byLabel('このブラウザに日時・地点を保存'));
+  await flush(600);
+  const birth = localStorage.getItem('celestial.observatory.v1');
+  assert.ok(birth);
+  await click(byLabel('このブラウザに表示設定を保存'));
+  assert.equal(localStorage.getItem('celestial.preferences.v1'), null);
+  assert.equal(localStorage.getItem('celestial.observatory.v1'), birth);
+  await choose('テーマ', 'dark');
+  assert.equal(localStorage.getItem('celestial.preferences.v1'), null);
+  await act(async () => root.unmount());
+  localStorage.clear();
 });
 
-await test('display preferences round-trip independently of birth data and preserve Lilith visibility when switching type',async()=>{
- localStorage.clear();
- const {defaultPreferences}=await import('../lib/preferences.mjs');
- const initial={...defaultPreferences(),dimBack:true,theme:'light',speed:7,houseSystem:'campanus',houses:true,minor:true,compound:true,asteroids:['Ceres'],lilithType:'mean'};
- initial.aspectSettings[30]={enabled:false,orb:1.5};initial.patternTypes=['yod'];
- localStorage.setItem('celestial.preferences.v1',JSON.stringify(initial));
- root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush(80);
- const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- assert.equal(globalThis.__skyProps.dimBack,true);assert.equal(globalThis.__skyProps.theme,'light');assert.equal(globalThis.__skyProps.houseSystem,'campanus');assert.equal(globalThis.__skyProps.houses,true);assert.match(byLabel('再生速度').textContent,/1週/);assert.equal(globalThis.__skyProps.playing,false);
- assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='Ceres'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
- await choose('テーマ','sky');await click(byLabel('3Dハウス線'));await click(document.querySelector('.network-button'));
- assert.equal(byLabel('セミセクスタイルのオーブ').value,'1.5');assert.equal(byLabel('セミセクスタイル 30°').getAttribute('aria-checked'),'false');
- await input(byLabel('セミセクスタイルのオーブ'),'3.5');await click(byLabel('感受点をアスペクトに含める'));await click(byLabel('リリス（平均位置）'));await choose('リリスの種類','true');
- assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'||b.id==='MeanLilith'),'switching type preserves hidden state');
- await click(byLabel('リリス（真位置）'));assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));assert.ok(globalThis.__skyProps.chart.aspects.every(e=>!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.a)&&!['TrueLilith','NorthNode','SouthNode','Vertex'].includes(e.b)));
- await act(async()=>root.unmount());
- root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- assert.equal(globalThis.__skyProps.theme,'sky');assert.equal(globalThis.__skyProps.houses,false);assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='TrueLilith'));
- const stored=JSON.parse(localStorage.getItem('celestial.preferences.v1'));assert.equal(stored.aspectSettings[30].orb,3.5);assert.equal(stored.includePoints,false);assert.equal(stored.lilithType,'true');assert.ok(!('time' in stored));
- await click(byLabel('このブラウザに日時・地点を保存'));await flush(600);const birth=localStorage.getItem('celestial.observatory.v1');assert.ok(birth);
- await click(byLabel('このブラウザに表示設定を保存'));assert.equal(localStorage.getItem('celestial.preferences.v1'),null);assert.equal(localStorage.getItem('celestial.observatory.v1'),birth);
- await choose('テーマ','dark');assert.equal(localStorage.getItem('celestial.preferences.v1'),null);await act(async()=>root.unmount());localStorage.clear();
-});
-
-await test('English localization covers the chart, all dialogs, errors and stored language without resetting the chart',async()=>{
- localStorage.clear();root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();
- const choose=async(label,value)=>{const el=byLabel(label);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('change',{bubbles:true}));});await flush();};
- const noJapanese=(element)=>{const text=element.textContent.replaceAll('日本語','');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/.test(text),'Untranslated text: '+text.match(/.{0,35}[\u3040-\u30ff\u3400-\u9fff].{0,65}/)?.[0]);};
- const time=globalThis.__skyProps.chart.time;await choose('Language','en');assert.equal(document.documentElement.lang,'en');assert.equal(globalThis.__skyProps.chart.time,time);assert.equal(globalThis.__skyProps.locale,'en');assert.ok(document.querySelector('.planet-table').textContent.includes('Sun'));noJapanese(document.querySelector('main'));
- await click(byLabel('Display settings'));noJapanese(document.querySelector('.settings-dialog'));await click(byLabel('Dim the far side'));assert.equal(globalThis.__skyProps.dimBack,true);await click(byLabel('Dim the far side'));assert.equal(globalThis.__skyProps.dimBack,false);await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await click(document.querySelector('.network-button'));noJapanese(document.querySelector('.network-dialog'));assert.equal(byLabel('Lilith type').options[0].textContent,'True position');assert.equal(byLabel('Lilith type').options[1].textContent,'Mean position');
- await click(byLabel('North & South Nodes'));assert.ok(!globalThis.__skyProps.chart.bodies.some(b=>b.id==='NorthNode'||b.id==='SouthNode'));await click(byLabel('North & South Nodes'));assert.equal(globalThis.__skyProps.chart.bodies.filter(b=>b.id==='NorthNode'||b.id==='SouthNode').length,2);
- await choose('Lilith type','mean');assert.ok(globalThis.__skyProps.chart.bodies.some(b=>b.id==='MeanLilith'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await click(byLabel('Help and privacy'));noJapanese(document.querySelector('.help-dialog'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await click(document.querySelector('.birth-trigger'));await flush(60);noJapanese(document.querySelector('.birth-form'));await click(document.querySelector('[data-slot="dialog-close"]'));await flush(150);
- await choose('House system','placidus');await input(document.querySelector('input[min="-89"]'),'78');await act(async()=>document.querySelectorAll('.condition-block form')[1].dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await flush();assert.match(document.querySelector('.house-warning').textContent,/Placidus/);noJapanese(document.querySelector('.house-warning'));
- await click(byLabel('Save display preferences in this browser'));assert.equal(JSON.parse(localStorage.getItem('celestial.preferences.v1')).locale,'en');assert.equal(localStorage.getItem('celestial.observatory.v1'),null);
- await act(async()=>root.unmount());root=createRoot(document.getElementById('root'));await act(async()=>root.render(createElement(Home)));await flush();assert.equal(byLabel('Language').value,'en');
- await choose('Language','ja');assert.equal(document.documentElement.lang,'ja');assert.ok(document.querySelector('.planet-table').textContent.includes('太陽'));await click(document.querySelector('.network-button'));assert.equal(byLabel('リリスの種類').options[0].textContent,'真位置');assert.equal(byLabel('リリスの種類').options[1].textContent,'平均位置');
- await act(async()=>root.unmount());localStorage.clear();
+await test('English localization covers the chart, all dialogs, errors and stored language without resetting the chart', async () => {
+  localStorage.clear();
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  const choose = async (label, value) => {
+    const el = byLabel(label);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value',
+      ).set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+  };
+  const noJapanese = (element) => {
+    const text = element.textContent.replaceAll('日本語', '');
+    assert.ok(
+      !/[\u3040-\u30ff\u3400-\u9fff]/.test(text),
+      'Untranslated text: ' +
+        text.match(/.{0,35}[\u3040-\u30ff\u3400-\u9fff].{0,65}/)?.[0],
+    );
+  };
+  const time = globalThis.__skyProps.chart.time;
+  await choose('Language', 'en');
+  assert.equal(document.documentElement.lang, 'en');
+  assert.equal(globalThis.__skyProps.chart.time, time);
+  assert.equal(globalThis.__skyProps.locale, 'en');
+  assert.ok(
+    document.querySelector('.planet-table').textContent.includes('Sun'),
+  );
+  noJapanese(document.querySelector('main'));
+  await click(byLabel('Display settings'));
+  noJapanese(document.querySelector('.settings-dialog'));
+  await click(byLabel('Dim the far side'));
+  assert.equal(globalThis.__skyProps.dimBack, true);
+  await click(byLabel('Dim the far side'));
+  assert.equal(globalThis.__skyProps.dimBack, false);
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await click(document.querySelector('.network-button'));
+  noJapanese(document.querySelector('.network-dialog'));
+  assert.equal(byLabel('Lilith type').options[0].textContent, 'True position');
+  assert.equal(byLabel('Lilith type').options[1].textContent, 'Mean position');
+  await click(byLabel('North & South Nodes'));
+  assert.ok(
+    !globalThis.__skyProps.chart.bodies.some(
+      (b) => b.id === 'NorthNode' || b.id === 'SouthNode',
+    ),
+  );
+  await click(byLabel('North & South Nodes'));
+  assert.equal(
+    globalThis.__skyProps.chart.bodies.filter(
+      (b) => b.id === 'NorthNode' || b.id === 'SouthNode',
+    ).length,
+    2,
+  );
+  await choose('Lilith type', 'mean');
+  assert.ok(
+    globalThis.__skyProps.chart.bodies.some((b) => b.id === 'MeanLilith'),
+  );
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await click(byLabel('Help and privacy'));
+  noJapanese(document.querySelector('.help-dialog'));
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await click(document.querySelector('.birth-trigger'));
+  await flush(60);
+  noJapanese(document.querySelector('.birth-form'));
+  await click(document.querySelector('[data-slot="dialog-close"]'));
+  await flush(150);
+  await choose('House system', 'placidus');
+  await input(document.querySelector('input[min="-89"]'), '78');
+  await act(async () =>
+    document
+      .querySelectorAll('.condition-block form')[1]
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  await flush();
+  assert.match(
+    document.querySelector('.house-warning').textContent,
+    /Placidus/,
+  );
+  noJapanese(document.querySelector('.house-warning'));
+  await click(byLabel('Save display preferences in this browser'));
+  assert.equal(
+    JSON.parse(localStorage.getItem('celestial.preferences.v1')).locale,
+    'en',
+  );
+  assert.equal(localStorage.getItem('celestial.observatory.v1'), null);
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  assert.equal(byLabel('Language').value, 'en');
+  await choose('Language', 'ja');
+  assert.equal(document.documentElement.lang, 'ja');
+  assert.ok(
+    document.querySelector('.planet-table').textContent.includes('太陽'),
+  );
+  await click(document.querySelector('.network-button'));
+  assert.equal(byLabel('リリスの種類').options[0].textContent, '真位置');
+  assert.equal(byLabel('リリスの種類').options[1].textContent, '平均位置');
+  await act(async () => root.unmount());
+  localStorage.clear();
 });
 dom.window.close();
-
-
-
