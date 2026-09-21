@@ -341,6 +341,8 @@ export default function Home() {
   const orrery = !liveMode && rootSnapshot.view === 'orrery';
   const [pendingView, setPendingView] = useState<string | null>(null);
   const viewChangeTimer = useRef<number | null>(null);
+  const dissolveTimer = useRef<number | null>(null);
+  const [dissolveKey, setDissolveKey] = useState(0);
   const [orb, setOrb] = useState(6);
   const [selected, setSelected] = useState<string | null>(null);
   const [reset, setReset] = useState(0);
@@ -364,13 +366,32 @@ export default function Home() {
     () => () => {
       if (viewChangeTimer.current !== null)
         window.clearTimeout(viewChangeTimer.current);
+      if (dissolveTimer.current !== null)
+        window.clearTimeout(dissolveTimer.current);
     },
     [],
   );
+  function dissolveTo(swap: () => void) {
+    if (reduced) {
+      swap();
+      return;
+    }
+    if (dissolveTimer.current !== null)
+      window.clearTimeout(dissolveTimer.current);
+    setDissolveKey((key) => key + 1);
+    dissolveTimer.current = window.setTimeout(() => {
+      swap();
+      dissolveTimer.current = null;
+    }, 300);
+  }
   function changeView(next: string) {
     if (viewChangeTimer.current !== null) {
       window.clearTimeout(viewChangeTimer.current);
       viewChangeTimer.current = null;
+    }
+    if (dissolveTimer.current !== null) {
+      window.clearTimeout(dissolveTimer.current);
+      dissolveTimer.current = null;
     }
     if (reduced) {
       setPendingView(null);
@@ -384,9 +405,13 @@ export default function Home() {
     if (next === 'orrery' && rootSnapshot.view !== '3d') {
       dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
       viewChangeTimer.current = window.setTimeout(() => {
-        dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' });
+        dissolveTo(() => dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' }));
         viewChangeTimer.current = null;
       }, 1120);
+      return;
+    }
+    if (next === 'orrery') {
+      dissolveTo(() => dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' }));
       return;
     }
     dispatchRoot({ type: 'VIEW_SET', payload: next });
@@ -394,12 +419,14 @@ export default function Home() {
   function finishOrreryExit() {
     const next = pendingView ?? '3d';
     setPendingView(null);
-    dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
-    if (next === '3d') return;
-    viewChangeTimer.current = window.setTimeout(() => {
-      dispatchRoot({ type: 'VIEW_SET', payload: next });
-      viewChangeTimer.current = null;
-    }, 80);
+    dissolveTo(() => {
+      dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
+      if (next === '3d') return;
+      viewChangeTimer.current = window.setTimeout(() => {
+        dispatchRoot({ type: 'VIEW_SET', payload: next });
+        viewChangeTimer.current = null;
+      }, 80);
+    });
   }
   useEffect(() => {
     if (!asteroids.length) {
@@ -1018,6 +1045,13 @@ export default function Home() {
             liveMode ? '今の星を眺める' : orrery ? '太陽系儀' : '天球ビュー',
           )}
         >
+          {dissolveKey > 0 && (
+            <div
+              key={dissolveKey}
+              className="scene-dissolve"
+              aria-hidden="true"
+            />
+          )}
           {liveMode && (
             <div className="live-bar">
               <div className="live-clock">

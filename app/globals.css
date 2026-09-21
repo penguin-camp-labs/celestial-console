@@ -397,6 +397,52 @@ button:active {
   border-left: 1px solid;
   opacity: 0.4;
 }
+.scene-dissolve {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 28%, transparent 0 7%, var(--background) 31%),
+    radial-gradient(circle at 76% 72%, transparent 0 5%, var(--background) 29%),
+    repeating-radial-gradient(
+      circle at 52% 47%,
+      color-mix(in srgb, var(--foreground) 8%, transparent) 0 1px,
+      transparent 1px 5px
+    ),
+    color-mix(in srgb, var(--background) 94%, transparent);
+  animation: scene-dissolve 600ms ease-in-out both;
+}
+.scene-dissolve:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--background) 86%, transparent);
+  backdrop-filter: blur(7px);
+  animation: scene-dissolve-core 600ms ease-in-out both;
+}
+@keyframes scene-dissolve {
+  0%,
+  100% {
+    opacity: 0;
+    filter: blur(0);
+  }
+  44%,
+  56% {
+    opacity: 1;
+    filter: blur(3px);
+  }
+}
+@keyframes scene-dissolve-core {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  48%,
+  52% {
+    opacity: 0.92;
+  }
+}
 .stage:after {
   right: 20px;
   bottom: 20px;
