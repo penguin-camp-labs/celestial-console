@@ -62,7 +62,7 @@
   "ホロスコープ": "Horoscope",
   "太陽系儀": "Orrery",
   "太陽中心": "Heliocentric",
-  "距離は対数圧縮・天体サイズは模式表示": "Logarithmic distance scale · Body sizes are illustrative",
+  "距離は対数圧縮・天体サイズと月軌道は模式表示": "Logarithmic distance scale · Body sizes and lunar orbit are illustrative",
   "太陽系儀。ドラッグで回転、ホイールで拡大。": "Orrery. Drag to rotate; scroll to zoom.",
   "地球": "Earth",
   "視点をリセット": "Reset view",

@@ -55,10 +55,14 @@ test('ephemeris produces finite coordinates for every body across supported cent
 });
 test('solar system model returns heliocentric positions with Earth at about one AU', () => {
   const bodies = solarSystem(Date.parse('2026-09-21T00:00:00Z'));
-  assert.equal(bodies.length, 9);
+  assert.equal(bodies.length, 10);
   const earth = bodies.find((body) => body.id === 'Earth');
   assert.ok(earth);
   assert.ok(Math.abs(earth.distance - 1) < 0.02);
+  const moon = bodies.find((body) => body.id === 'Moon');
+  assert.ok(moon);
+  assert.ok(moon.parentDistance > 0.0023 && moon.parentDistance < 0.0028);
+  assert.ok(Math.abs(Math.hypot(...moon.orbitNormal) - 1) < 1e-12);
   for (const body of bodies) {
     assert.ok(Number.isFinite(body.x));
     assert.ok(Number.isFinite(body.y));

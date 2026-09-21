@@ -15,6 +15,9 @@ type OrreryBody = {
   color: string;
   orbit: number;
   size: number;
+  parent?: string;
+  parentDistance?: number;
+  orbitNormal?: number[];
   distance: number;
   x: number;
   y: number;
@@ -30,6 +33,8 @@ type Props = {
 };
 
 const compressedDistance = (au: number) => 28 + Math.log1p(au * 2.4) * 82;
+const MOON_ORBIT_RADIUS = 22;
+const MEAN_MOON_DISTANCE = 0.00257;
 
 function orbitGeometry(radius: number) {
   const points = Array.from({ length: 129 }, (_, index) => {
@@ -134,17 +139,30 @@ export default function Orrery({
     world.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
+    let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
-      world.add(
-        new THREE.Line(
-          orbitGeometry(compressedDistance(body.orbit)),
+      if (body.parent) {
+        moonOrbit = new THREE.Line(
+          orbitGeometry(MOON_ORBIT_RADIUS),
           new THREE.LineBasicMaterial({
-            color: light ? 0x607984 : 0x41616d,
+            color: light ? 0x71858e : 0x7995a2,
             transparent: true,
-            opacity: light ? 0.34 : 0.42,
+            opacity: light ? 0.56 : 0.68,
           }),
-        ),
-      );
+        );
+        world.add(moonOrbit);
+      } else {
+        world.add(
+          new THREE.Line(
+            orbitGeometry(compressedDistance(body.orbit)),
+            new THREE.LineBasicMaterial({
+              color: light ? 0x607984 : 0x41616d,
+              transparent: true,
+              opacity: light ? 0.34 : 0.42,
+            }),
+          ),
+        );
+      }
       const group = new THREE.Group();
       group.add(
         new THREE.Mesh(
@@ -181,17 +199,50 @@ export default function Orrery({
     }
 
     const updateBodies = () => {
-      for (const body of liveBodies.current) {
+      const currentBodies = liveBodies.current;
+      const earth = currentBodies.find((body) => body.id === 'Earth');
+      if (!earth) return;
+      const earthScale = compressedDistance(earth.distance) / earth.distance;
+      const earthPosition = new THREE.Vector3(
+        earth.x * earthScale,
+        earth.y * earthScale,
+        earth.z * earthScale,
+      );
+      for (const body of currentBodies) {
         const marker = markerById.get(body.id);
         if (!marker) continue;
-        const scale = compressedDistance(body.distance) / body.distance;
-        marker.position.set(body.x * scale, body.y * scale, body.z * scale);
+        if (body.parent === 'Earth') {
+          const relative = new THREE.Vector3(
+            body.x - earth.x,
+            body.y - earth.y,
+            body.z - earth.z,
+          );
+          const radius =
+            MOON_ORBIT_RADIUS *
+            ((body.parentDistance ?? MEAN_MOON_DISTANCE) / MEAN_MOON_DISTANCE);
+          marker.position
+            .copy(earthPosition)
+            .add(relative.normalize().multiplyScalar(radius));
+        } else {
+          const scale = compressedDistance(body.distance) / body.distance;
+          marker.position.set(body.x * scale, body.y * scale, body.z * scale);
+        }
         const label = marker.children.find(
           (child) => child instanceof CSS2DObject,
         );
         if (label instanceof CSS2DObject) {
-          label.element.title = `${body.distance.toFixed(3)} AU`;
+          label.element.title = body.parentDistance
+            ? `${Math.round(body.parentDistance * 149597870.7).toLocaleString()} km`
+            : `${body.distance.toFixed(3)} AU`;
         }
+      }
+      const moon = currentBodies.find((body) => body.id === 'Moon');
+      if (moonOrbit && moon?.orbitNormal) {
+        moonOrbit.position.copy(earthPosition);
+        moonOrbit.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3(...moon.orbitNormal).normalize(),
+        );
       }
     };
     updateBodies();
@@ -245,7 +296,7 @@ export default function Orrery({
       {failure && <p className="scene-error">{tr(failure)}</p>}
       <div className="orrery-scale-note">
         <b>{tr('太陽中心')}</b>
-        <span>{tr('距離は対数圧縮・天体サイズは模式表示')}</span>
+        <span>{tr('距離は対数圧縮・天体サイズと月軌道は模式表示')}</span>
       </div>
     </div>
   );
