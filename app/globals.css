@@ -397,6 +397,118 @@ button:active {
   border-left: 1px solid;
   opacity: 0.4;
 }
+.stage[data-view='2d'] {
+  --view-flare: 195, 151, 225;
+}
+.stage[data-view='ground'] {
+  --view-flare: 232, 185, 112;
+}
+.stage[data-view='3d'] {
+  --view-flare: 91, 224, 211;
+}
+.stage[data-view='orrery'] {
+  --view-flare: 112, 163, 239;
+}
+.view-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+  animation: view-transition-fade 720ms cubic-bezier(0.2, 0.78, 0.24, 1) both;
+}
+.view-transition:before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    108deg,
+    transparent 30%,
+    rgba(var(--view-flare), 0.03) 40%,
+    rgba(var(--view-flare), 0.32) 49%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(var(--view-flare), 0.13) 53%,
+    transparent 65%
+  );
+  animation: view-transition-sweep 720ms cubic-bezier(0.2, 0.78, 0.24, 1) both;
+}
+.view-transition span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: rgb(var(--view-flare));
+  font: 600 clamp(13px, 1.6vw, 18px) / 1 var(--font-mono);
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgba(var(--view-flare), 0.72);
+  animation: view-transition-label 620ms cubic-bezier(0.2, 0.78, 0.24, 1) both;
+}
+.scene-heading {
+  animation: scene-heading-enter 520ms cubic-bezier(0.2, 0.78, 0.24, 1) both;
+}
+.sky-host {
+  animation: scene-surface-enter 620ms cubic-bezier(0.2, 0.78, 0.24, 1) both;
+}
+@keyframes view-transition-sweep {
+  from {
+    transform: translateX(-85%) skewX(-7deg);
+  }
+  to {
+    transform: translateX(85%) skewX(-7deg);
+  }
+}
+@keyframes view-transition-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  18%,
+  64% {
+    opacity: 1;
+  }
+}
+@keyframes view-transition-label {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -38%) scale(0.94);
+    filter: blur(7px);
+  }
+  38% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -62%) scale(1.04);
+    filter: blur(0);
+  }
+}
+@keyframes scene-heading-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scene-surface-enter {
+  from {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.stage.is-reduced-motion .view-transition {
+  display: none;
+}
+.stage.is-reduced-motion .scene-heading,
+.stage.is-reduced-motion .sky-host {
+  animation: none;
+}
 .stage:after {
   right: 20px;
   bottom: 20px;

@@ -339,6 +339,14 @@ export default function Home() {
   const flat = rootSnapshot.view === '2d';
   const observer = rootSnapshot.view === 'ground';
   const orrery = !liveMode && rootSnapshot.view === 'orrery';
+  const viewLabel =
+    rootSnapshot.view === '2d'
+      ? 'ホロスコープ'
+      : rootSnapshot.view === 'ground'
+        ? '地上'
+        : rootSnapshot.view === 'orrery'
+          ? '太陽系儀'
+          : '天球';
   const [orb, setOrb] = useState(6);
   const [selected, setSelected] = useState<string | null>(null);
   const [reset, setReset] = useState(0);
@@ -970,7 +978,8 @@ export default function Home() {
       </div>
       <div className="workspace">
         <section
-          className={`stage${orrery ? ' is-orrery' : ''}`}
+          className={`stage${orrery ? ' is-orrery' : ''}${reduced ? ' is-reduced-motion' : ''}`}
+          data-view={rootSnapshot.view}
           aria-label={tr(
             liveMode ? '今の星を眺める' : orrery ? '太陽系儀' : '天球ビュー',
           )}
@@ -1025,7 +1034,16 @@ export default function Home() {
               </div>
             </div>
           )}
-          <div className="scene-heading">
+          {!liveMode && (
+            <div
+              key={`transition-${rootSnapshot.view}`}
+              className="view-transition"
+              aria-hidden="true"
+            >
+              <span>{tr(viewLabel)}</span>
+            </div>
+          )}
+          <div key={`heading-${rootSnapshot.view}`} className="scene-heading">
             <p className="eyebrow">
               {orrery
                 ? 'HELIOCENTRIC ORRERY / 02'
