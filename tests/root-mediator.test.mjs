@@ -14,10 +14,12 @@ test('RootMediator applies state-machine transitions and publishes one snapshot 
   assert.deepEqual(mediator.getSnapshot(), ROOT_INITIAL_STATE);
   mediator.dispatch(createRootEvent('VIEW_SET', '2d'));
   assert.equal(mediator.getSnapshot().view, '2d');
+  mediator.dispatch(createRootEvent('VIEW_SET', 'orrery'));
+  assert.equal(mediator.getSnapshot().view, 'orrery');
   mediator.dispatch(createRootEvent('LOCALE_SET', 'en'));
   assert.equal(mediator.getSnapshot().locale, 'en');
   mediator.dispatch(createRootEvent('UNKNOWN', true));
-  assert.equal(seen.length, 2);
+  assert.equal(seen.length, 3);
   stop();
 });
 

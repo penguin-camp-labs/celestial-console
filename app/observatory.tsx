@@ -39,6 +39,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import Sky from './sky';
+import Orrery from './orrery';
 import TimelineClock from './timeline-clock';
 import { HOUSE_SYSTEMS, houseCusps } from '@/lib/houses.mjs';
 import {
@@ -72,6 +73,7 @@ import {
   localInput,
   parseInput,
   signPosition,
+  solarSystem,
   validateSaved,
 } from '@/lib/engine.mjs';
 import {
@@ -336,6 +338,7 @@ export default function Home() {
   const [trails, setTrails] = useState(false);
   const flat = rootSnapshot.view === '2d';
   const observer = rootSnapshot.view === 'ground';
+  const orrery = !liveMode && rootSnapshot.view === 'orrery';
   const [orb, setOrb] = useState(6);
   const [selected, setSelected] = useState<string | null>(null);
   const [reset, setReset] = useState(0);
@@ -722,6 +725,10 @@ export default function Home() {
     () => calculate(observationTime, latitude, longitude),
     [observationTime, latitude, longitude],
   );
+  const solarSystemBodies = useMemo(
+    () => solarSystem(observationTime),
+    [observationTime],
+  );
   const houseResult = useMemo(
     () => houseCusps({ ...baseChart, latitude }, houseSystem),
     [baseChart, latitude, houseSystem],
@@ -952,10 +959,7 @@ export default function Home() {
             setInstant(v.time);
           }}
         />
-        <LocationButton
-          onLocation={updateLocation}
-          onMessage={setMessage}
-        />
+        <LocationButton onLocation={updateLocation} onMessage={setMessage} />
         <span className="section-note">
           {tr(
             theme === 'sky'
@@ -966,8 +970,10 @@ export default function Home() {
       </div>
       <div className="workspace">
         <section
-          className="stage"
-          aria-label={tr(liveMode ? '今の星を眺める' : '天球ビュー')}
+          className={`stage${orrery ? ' is-orrery' : ''}`}
+          aria-label={tr(
+            liveMode ? '今の星を眺める' : orrery ? '太陽系儀' : '天球ビュー',
+          )}
         >
           {liveMode && (
             <div className="live-bar">
@@ -1020,16 +1026,27 @@ export default function Home() {
             </div>
           )}
           <div className="scene-heading">
-            <p className="eyebrow">GEOCENTRIC OBSERVATORY / 01</p>
+            <p className="eyebrow">
+              {orrery
+                ? 'HELIOCENTRIC ORRERY / 02'
+                : 'GEOCENTRIC OBSERVATORY / 01'}
+            </p>
             <p>
-              {tr(observer && !flat ? '地表視点' : '地球中心')} <span> / </span>
-              {tr('トロピカル黄道')}
+              {tr(
+                orrery
+                  ? '太陽中心'
+                  : observer && !flat
+                    ? '地表視点'
+                    : '地球中心',
+              )}{' '}
+              <span> / </span>
+              {tr(orrery ? '太陽系儀' : 'トロピカル黄道')}
             </p>
           </div>
           <div className="view-toggle" role="group" aria-label={tr('表示形式')}>
             <button
               onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '3d' })}
-              aria-pressed={!flat && !observer}
+              aria-pressed={!flat && !observer && !orrery}
             >
               3D <span>{tr('天球')}</span>
             </button>
@@ -1047,8 +1064,25 @@ export default function Home() {
             >
               2D <span>{tr('ホロスコープ')}</span>
             </button>
+            <button
+              onClick={() =>
+                dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' })
+              }
+              aria-pressed={orrery}
+            >
+              {tr('太陽系儀')}
+            </button>
           </div>
-          {ready && (
+          {ready && orrery && (
+            <Orrery
+              bodies={solarSystemBodies}
+              light={appearance.light}
+              locale={locale}
+              reset={reset}
+              reduced={reduced}
+            />
+          )}
+          {ready && !orrery && (
             <Sky
               dimBack={dimBack}
               locale={locale}

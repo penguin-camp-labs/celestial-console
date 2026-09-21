@@ -11,6 +11,7 @@ import {
   parseInput,
   localInput,
   validateSaved,
+  solarSystem,
   MIN_TIME,
   MAX_TIME,
 } from '../lib/engine.mjs';
@@ -50,6 +51,19 @@ test('ephemeris produces finite coordinates for every body across supported cent
       assert.ok(b.distance > 0);
       assert.ok(Number.isFinite(b.speed));
     }
+  }
+});
+test('solar system model returns heliocentric positions with Earth at about one AU', () => {
+  const bodies = solarSystem(Date.parse('2026-09-21T00:00:00Z'));
+  assert.equal(bodies.length, 9);
+  const earth = bodies.find((body) => body.id === 'Earth');
+  assert.ok(earth);
+  assert.ok(Math.abs(earth.distance - 1) < 0.02);
+  for (const body of bodies) {
+    assert.ok(Number.isFinite(body.x));
+    assert.ok(Number.isFinite(body.y));
+    assert.ok(Number.isFinite(body.z));
+    assert.ok(body.distance > 0);
   }
 });
 test('known equinox and total solar eclipse are geometrically consistent', () => {
