@@ -339,14 +339,8 @@ export default function Home() {
   const flat = rootSnapshot.view === '2d';
   const observer = rootSnapshot.view === 'ground';
   const orrery = !liveMode && rootSnapshot.view === 'orrery';
-  const viewLabel =
-    rootSnapshot.view === '2d'
-      ? 'ホロスコープ'
-      : rootSnapshot.view === 'ground'
-        ? '地上'
-        : rootSnapshot.view === 'orrery'
-          ? '太陽系儀'
-          : '天球';
+  const [pendingView, setPendingView] = useState<string | null>(null);
+  const viewChangeTimer = useRef<number | null>(null);
   const [orb, setOrb] = useState(6);
   const [selected, setSelected] = useState<string | null>(null);
   const [reset, setReset] = useState(0);
@@ -366,6 +360,47 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [ephemerisError, setEphemerisError] = useState('');
   const [retry, setRetry] = useState(0);
+  useEffect(
+    () => () => {
+      if (viewChangeTimer.current !== null)
+        window.clearTimeout(viewChangeTimer.current);
+    },
+    [],
+  );
+  function changeView(next: string) {
+    if (viewChangeTimer.current !== null) {
+      window.clearTimeout(viewChangeTimer.current);
+      viewChangeTimer.current = null;
+    }
+    if (reduced) {
+      setPendingView(null);
+      dispatchRoot({ type: 'VIEW_SET', payload: next });
+      return;
+    }
+    if (rootSnapshot.view === 'orrery') {
+      setPendingView(next === 'orrery' ? null : next);
+      return;
+    }
+    if (next === 'orrery' && rootSnapshot.view !== '3d') {
+      dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
+      viewChangeTimer.current = window.setTimeout(() => {
+        dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' });
+        viewChangeTimer.current = null;
+      }, 1120);
+      return;
+    }
+    dispatchRoot({ type: 'VIEW_SET', payload: next });
+  }
+  function finishOrreryExit() {
+    const next = pendingView ?? '3d';
+    setPendingView(null);
+    dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
+    if (next === '3d') return;
+    viewChangeTimer.current = window.setTimeout(() => {
+      dispatchRoot({ type: 'VIEW_SET', payload: next });
+      viewChangeTimer.current = null;
+    }, 80);
+  }
   useEffect(() => {
     if (!asteroids.length) {
       setLoading(false);
@@ -978,8 +1013,7 @@ export default function Home() {
       </div>
       <div className="workspace">
         <section
-          className={`stage${orrery ? ' is-orrery' : ''}${reduced ? ' is-reduced-motion' : ''}`}
-          data-view={rootSnapshot.view}
+          className={`stage${orrery ? ' is-orrery' : ''}`}
           aria-label={tr(
             liveMode ? '今の星を眺める' : orrery ? '太陽系儀' : '天球ビュー',
           )}
@@ -1034,16 +1068,7 @@ export default function Home() {
               </div>
             </div>
           )}
-          {!liveMode && (
-            <div
-              key={`transition-${rootSnapshot.view}`}
-              className="view-transition"
-              aria-hidden="true"
-            >
-              <span>{tr(viewLabel)}</span>
-            </div>
-          )}
-          <div key={`heading-${rootSnapshot.view}`} className="scene-heading">
+          <div className="scene-heading">
             <p className="eyebrow">
               {orrery
                 ? 'HELIOCENTRIC ORRERY / 02'
@@ -1062,42 +1087,35 @@ export default function Home() {
             </p>
           </div>
           <div className="view-toggle" role="group" aria-label={tr('表示形式')}>
-            <button
-              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
-              aria-pressed={flat}
-            >
+            <button onClick={() => changeView('2d')} aria-pressed={flat}>
               {tr('ホロスコープ')}
             </button>
             <button
-              onClick={() =>
-                dispatchRoot({ type: 'VIEW_SET', payload: 'ground' })
-              }
+              onClick={() => changeView('ground')}
               aria-pressed={!flat && observer}
             >
               {tr('地上')}
             </button>
             <button
-              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '3d' })}
+              onClick={() => changeView('3d')}
               aria-pressed={!flat && !observer && !orrery}
             >
               {tr('天球')}
             </button>
-            <button
-              onClick={() =>
-                dispatchRoot({ type: 'VIEW_SET', payload: 'orrery' })
-              }
-              aria-pressed={orrery}
-            >
+            <button onClick={() => changeView('orrery')} aria-pressed={orrery}>
               {tr('太陽系儀')}
             </button>
           </div>
           {ready && orrery && (
             <Orrery
               bodies={solarSystemBodies}
+              geocentricBodies={chart.bodies}
               light={appearance.light}
               locale={locale}
               reset={reset}
               reduced={reduced}
+              exiting={pendingView !== null}
+              onExitComplete={finishOrreryExit}
             />
           )}
           {ready && !orrery && (
@@ -1131,7 +1149,7 @@ export default function Home() {
               reset={reset}
               reduced={reduced}
               onFps={setFps}
-              onFlat={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
+              onFlat={() => changeView('2d')}
             />
           )}
           <div className="scene-tools">

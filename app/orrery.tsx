@@ -26,10 +26,13 @@ type OrreryBody = {
 
 type Props = {
   bodies: OrreryBody[];
+  geocentricBodies: { id: string; lon: number; lat: number }[];
   light: boolean;
   locale: string;
   reset: number;
   reduced: boolean;
+  exiting: boolean;
+  onExitComplete: () => void;
 };
 
 const compressedDistance = (au: number) => 28 + Math.log1p(au * 2.4) * 82;
@@ -50,14 +53,21 @@ function orbitGeometry(radius: number) {
 
 export default function Orrery({
   bodies,
+  geocentricBodies,
   light,
   locale,
   reset,
   reduced,
+  exiting,
+  onExitComplete,
 }: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const liveBodies = useRef(bodies);
   liveBodies.current = bodies;
+  const liveGeocentric = useRef(geocentricBodies);
+  liveGeocentric.current = geocentricBodies;
+  const liveTransition = useRef({ exiting, onExitComplete });
+  liveTransition.current = { exiting, onExitComplete };
   const resetCamera = useRef<(() => void) | null>(null);
   const [failure, setFailure] = useState('');
 
@@ -113,53 +123,61 @@ export default function Orrery({
     scene.add(new THREE.HemisphereLight(0xffffff, 0x203040, light ? 2.2 : 1.5));
     scene.add(new THREE.PointLight(0xffe3a8, light ? 70 : 95, 1200, 1.3));
 
-    world.add(
-      new THREE.Mesh(
-        new THREE.SphereGeometry(12, 32, 20),
-        new THREE.MeshStandardMaterial({
-          color: 0xffc86b,
-          emissive: 0xff9e3d,
-          emissiveIntensity: light ? 0.75 : 1.3,
-          roughness: 0.72,
-        }),
-      ),
-    );
-
-    const ecliptic = new THREE.Mesh(
-      new THREE.CircleGeometry(compressedDistance(39.482) + 28, 96),
-      new THREE.MeshBasicMaterial({
-        color: light ? 0x8da3ad : 0x244652,
-        transparent: true,
-        opacity: light ? 0.05 : 0.08,
-        side: THREE.DoubleSide,
-        depthWrite: false,
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(12, 32, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0xffc86b,
+        emissive: 0xff9e3d,
+        emissiveIntensity: light ? 0.75 : 1.3,
+        roughness: 0.72,
       }),
     );
+    world.add(sun);
+
+    const orbitGuides = new THREE.Group();
+    world.add(orbitGuides);
+    const orbitMaterials: THREE.Material[] = [];
+    const eclipticMaterial = new THREE.MeshBasicMaterial({
+      color: light ? 0x8da3ad : 0x244652,
+      transparent: true,
+      opacity: light ? 0.05 : 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    eclipticMaterial.userData.baseOpacity = eclipticMaterial.opacity;
+    orbitMaterials.push(eclipticMaterial);
+    const ecliptic = new THREE.Mesh(
+      new THREE.CircleGeometry(compressedDistance(39.482) + 28, 96),
+      eclipticMaterial,
+    );
     ecliptic.rotation.x = -Math.PI / 2;
-    world.add(ecliptic);
+    orbitGuides.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
     let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
       if (body.parent) {
-        moonOrbit = new THREE.Line(
-          orbitGeometry(MOON_ORBIT_RADIUS),
-          new THREE.LineBasicMaterial({
-            color: light ? 0x71858e : 0x7995a2,
-            transparent: true,
-            opacity: light ? 0.56 : 0.68,
-          }),
-        );
+        const material = new THREE.LineBasicMaterial({
+          color: light ? 0x71858e : 0x7995a2,
+          transparent: true,
+          opacity: light ? 0.56 : 0.68,
+        });
+        material.userData.baseOpacity = material.opacity;
+        orbitMaterials.push(material);
+        moonOrbit = new THREE.Line(orbitGeometry(MOON_ORBIT_RADIUS), material);
         world.add(moonOrbit);
       } else {
-        world.add(
+        const material = new THREE.LineBasicMaterial({
+          color: light ? 0x607984 : 0x41616d,
+          transparent: true,
+          opacity: light ? 0.34 : 0.42,
+        });
+        material.userData.baseOpacity = material.opacity;
+        orbitMaterials.push(material);
+        orbitGuides.add(
           new THREE.Line(
             orbitGeometry(compressedDistance(body.orbit)),
-            new THREE.LineBasicMaterial({
-              color: light ? 0x607984 : 0x41616d,
-              transparent: true,
-              opacity: light ? 0.34 : 0.42,
-            }),
+            material,
           ),
         );
       }
@@ -198,7 +216,20 @@ export default function Orrery({
       world.add(group);
     }
 
-    const updateBodies = () => {
+    const geocentricPosition = (id: string) => {
+      if (id === 'Earth') return new THREE.Vector3();
+      const body = liveGeocentric.current.find((item) => item.id === id);
+      if (!body) return new THREE.Vector3();
+      const lon = THREE.MathUtils.degToRad(body.lon);
+      const lat = THREE.MathUtils.degToRad(body.lat);
+      const radial = Math.cos(lat) * 150;
+      return new THREE.Vector3(
+        Math.cos(lon) * radial,
+        Math.sin(lat) * 150,
+        -Math.sin(lon) * radial,
+      );
+    };
+    const updateBodies = (progress: number) => {
       const currentBodies = liveBodies.current;
       const earth = currentBodies.find((body) => body.id === 'Earth');
       if (!earth) return;
@@ -208,9 +239,15 @@ export default function Orrery({
         earth.y * earthScale,
         earth.z * earthScale,
       );
+      sun.position.lerpVectors(
+        geocentricPosition('Sun'),
+        new THREE.Vector3(),
+        progress,
+      );
       for (const body of currentBodies) {
         const marker = markerById.get(body.id);
         if (!marker) continue;
+        const target = new THREE.Vector3();
         if (body.parent === 'Earth') {
           const relative = new THREE.Vector3(
             body.x - earth.x,
@@ -220,13 +257,18 @@ export default function Orrery({
           const radius =
             MOON_ORBIT_RADIUS *
             ((body.parentDistance ?? MEAN_MOON_DISTANCE) / MEAN_MOON_DISTANCE);
-          marker.position
+          target
             .copy(earthPosition)
             .add(relative.normalize().multiplyScalar(radius));
         } else {
           const scale = compressedDistance(body.distance) / body.distance;
-          marker.position.set(body.x * scale, body.y * scale, body.z * scale);
+          target.set(body.x * scale, body.y * scale, body.z * scale);
         }
+        marker.position.lerpVectors(
+          geocentricPosition(body.id),
+          target,
+          progress,
+        );
         const label = marker.children.find(
           (child) => child instanceof CSS2DObject,
         );
@@ -244,8 +286,14 @@ export default function Orrery({
           new THREE.Vector3(...moon.orbitNormal).normalize(),
         );
       }
+      const orbitScale = 0.18 + progress * 0.82;
+      orbitGuides.scale.setScalar(orbitScale);
+      orbitMaterials.forEach((material) => {
+        material.opacity = material.userData.baseOpacity * progress;
+      });
     };
-    updateBodies();
+    let transition = reduced ? 1 : 0;
+    updateBodies(transition);
 
     const resize = () => {
       const width = host.clientWidth;
@@ -260,12 +308,32 @@ export default function Orrery({
     resize();
 
     let frame = 0;
+    let previous = performance.now();
+    let exitNotified = false;
     const render = () => {
       frame = requestAnimationFrame(render);
-      updateBodies();
+      const now = performance.now();
+      const dt = Math.min(0.06, (now - previous) / 1000);
+      previous = now;
+      const leaving = liveTransition.current.exiting;
+      const direction = leaving ? -1 : 1;
+      transition = THREE.MathUtils.clamp(
+        transition + (direction * dt) / 1.1,
+        0,
+        1,
+      );
+      const progress = transition * transition * (3 - 2 * transition);
+      updateBodies(progress);
+      controls.enabled = transition === 1 && !leaving;
       controls.update();
       renderer.render(scene, camera);
       labels.render(scene, camera);
+      if (leaving && transition === 0 && !exitNotified) {
+        exitNotified = true;
+        queueMicrotask(() => liveTransition.current.onExitComplete());
+      } else if (!leaving) {
+        exitNotified = false;
+      }
     };
     render();
 
