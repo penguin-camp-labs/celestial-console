@@ -1045,10 +1045,10 @@ export default function Home() {
           </div>
           <div className="view-toggle" role="group" aria-label={tr('表示形式')}>
             <button
-              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '3d' })}
-              aria-pressed={!flat && !observer && !orrery}
+              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
+              aria-pressed={flat}
             >
-              3D <span>{tr('天球')}</span>
+              {tr('ホロスコープ')}
             </button>
             <button
               onClick={() =>
@@ -1056,13 +1056,13 @@ export default function Home() {
               }
               aria-pressed={!flat && observer}
             >
-              {tr('地上視点')}
+              {tr('地上')}
             </button>
             <button
-              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '2d' })}
-              aria-pressed={flat}
+              onClick={() => dispatchRoot({ type: 'VIEW_SET', payload: '3d' })}
+              aria-pressed={!flat && !observer && !orrery}
             >
-              2D <span>{tr('ホロスコープ')}</span>
+              {tr('天球')}
             </button>
             <button
               onClick={() =>

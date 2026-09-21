@@ -127,14 +127,14 @@ await test('interactive local app: time, playback, 2D/3D, aspects and storage', 
   await flush();
   assert.ok(Math.abs(displayed() - Date.now()) < 3000);
   assert.equal(localStorage.length, 0, 'nothing saved by default');
-  await click(button('2D ホロスコープ'));
+  await click(button('ホロスコープ'));
   assert.equal(globalThis.__skyProps.flat, true);
   assert.equal(globalThis.__skyProps.houses2d, true);
   await click(byLabel('ハウス線'));
   assert.equal(globalThis.__skyProps.houses2d, false);
   await click(byLabel('ハウス線'));
   assert.equal(globalThis.__skyProps.houses2d, true);
-  await click(button('3D 天球'));
+  await click(button('天球'));
   assert.equal(globalThis.__skyProps.flat, false);
   await click(document.querySelector('.planet-button'));
   assert.equal(globalThis.__skyProps.selected, 'Sun');
@@ -306,7 +306,7 @@ await test('ground controls, point visibility and opt-in GPS keep location priva
   await flush();
   assert.equal(gpsCalls, 0, 'GPS never starts on page load');
   assert.ok(!document.body.textContent.includes('空を、立体で読み解く。'));
-  await click(button('地上視点'));
+  await click(button('地上'));
   assert.equal(globalThis.__skyProps.observer, true);
   assert.equal(globalThis.__skyProps.flat, false);
   assert.equal(globalThis.__skyProps.showBelowHorizon, true);
@@ -484,7 +484,7 @@ await test('live focus follows wall time each second and restores the chart with
         .execute({ datetime: '1990-01-01T00:00:00Z' }),
     );
     await flush();
-    await click(button('2D ホロスコープ'));
+    await click(button('ホロスコープ'));
     await click(document.querySelector('.planet-button'));
     await click(byLabel('このブラウザに日時・地点を保存'));
     await flush(600);
@@ -617,7 +617,7 @@ await test('house selector retains the system and explains polar Placidus failur
     await choose(system);
     assert.equal(globalThis.__skyProps.houseSystem, system);
   }
-  await click(button('2D ホロスコープ'));
+  await click(button('ホロスコープ'));
   assert.equal(globalThis.__skyProps.houseSystem, 'placidus');
   await input(document.querySelector('input[min="-89"]'), '78');
   await act(async () =>
@@ -634,7 +634,7 @@ await test('house selector retains the system and explains polar Placidus failur
   await choose('campanus');
   assert.equal(document.querySelector('.house-warning'), null);
   assert.equal(globalThis.__skyProps.houseSystem, 'campanus');
-  await click(button('3D 天球'));
+  await click(button('天球'));
   await click(byLabel('3Dハウス線'));
   assert.equal(globalThis.__skyProps.houses, true);
   assert.equal(globalThis.__skyProps.houseSystem, 'campanus');
