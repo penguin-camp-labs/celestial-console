@@ -418,9 +418,9 @@ export default function Home() {
   }
   function finishOrreryExit() {
     const next = pendingView ?? '3d';
-    setPendingView(null);
     dissolveTo(() => {
       dispatchRoot({ type: 'VIEW_SET', payload: '3d' });
+      setPendingView(null);
       if (next === '3d') return;
       viewChangeTimer.current = window.setTimeout(() => {
         dispatchRoot({ type: 'VIEW_SET', payload: next });

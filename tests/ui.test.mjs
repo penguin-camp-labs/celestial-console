@@ -78,9 +78,19 @@ await build({
           path: 'sky',
           namespace: 'test',
         }));
-        b.onLoad({ filter: /.*/, namespace: 'test' }, () => ({
+        b.onResolve({ filter: /^\.\/orrery$/ }, () => ({
+          path: 'orrery',
+          namespace: 'test',
+        }));
+        b.onLoad({ filter: /^sky$/, namespace: 'test' }, () => ({
           contents:
             'import React from "react"; export default function Sky(props){globalThis.__skyProps=props;return React.createElement("div",{"data-testid":"sky","data-flat":props.flat});}',
+          loader: 'js',
+          resolveDir: rootPath,
+        }));
+        b.onLoad({ filter: /^orrery$/, namespace: 'test' }, () => ({
+          contents:
+            'import React from "react"; export default function Orrery(props){globalThis.__orreryProps=props;return React.createElement("div",{"data-testid":"orrery"});}',
           loader: 'js',
           resolveDir: rootPath,
         }));
@@ -121,6 +131,23 @@ const button = (text) =>
   Array.from(document.querySelectorAll('button')).find(
     (e) => e.textContent.trim() === text,
   );
+await test('orrery stays in its exited pose until the dissolve swaps scenes', async () => {
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(createElement(Home)));
+  await flush();
+  await click(button('太陽系儀'));
+  await flush(350);
+  assert.ok(document.querySelector('[data-testid="orrery"]'));
+  await click(button('天球'));
+  assert.equal(globalThis.__orreryProps.exiting, true);
+  await act(async () => globalThis.__orreryProps.onExitComplete());
+  assert.equal(globalThis.__orreryProps.exiting, true);
+  await flush(150);
+  assert.equal(globalThis.__orreryProps.exiting, true);
+  await flush(200);
+  assert.ok(document.querySelector('[data-testid="sky"]'));
+  await act(async () => root.unmount());
+});
 await test('interactive local app: time, playback, 2D/3D, aspects and storage', async () => {
   root = createRoot(document.getElementById('root'));
   await act(async () => root.render(createElement(Home)));
