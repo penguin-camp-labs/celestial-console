@@ -26,6 +26,7 @@ type OrreryBody = {
 
 type Props = {
   bodies: OrreryBody[];
+  orbits: { id: string; parent?: string; points: number[][] }[];
   geocentricBodies: { id: string; lon: number; lat: number }[];
   light: boolean;
   locale: string;
@@ -39,20 +40,43 @@ const compressedDistance = (au: number) => 28 + Math.log1p(au * 2.4) * 82;
 const MOON_ORBIT_RADIUS = 22;
 const MEAN_MOON_DISTANCE = 0.00257;
 
-function orbitGeometry(radius: number) {
-  const points = Array.from({ length: 129 }, (_, index) => {
-    const angle = (index / 128) * Math.PI * 2;
-    return new THREE.Vector3(
-      Math.cos(angle) * radius,
-      0,
-      Math.sin(angle) * radius,
+function updateOrbitGeometry(
+  line: THREE.Line,
+  points: number[][],
+  moon: boolean,
+) {
+  const positions = line.geometry.getAttribute(
+    'position',
+  ) as THREE.BufferAttribute;
+  for (let index = 0; index < points.length; index++) {
+    const point = points[index];
+    const distance = Math.hypot(...point);
+    const scale = moon
+      ? MOON_ORBIT_RADIUS / MEAN_MOON_DISTANCE
+      : compressedDistance(distance) / distance;
+    positions.setXYZ(
+      index,
+      point[0] * scale,
+      point[1] * scale,
+      point[2] * scale,
     );
-  });
-  return new THREE.BufferGeometry().setFromPoints(points);
+  }
+  positions.needsUpdate = true;
+  line.geometry.computeBoundingSphere();
+}
+
+function orbitGeometry(pointCount: number) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(new Float32Array(pointCount * 3), 3),
+  );
+  return geometry;
 }
 
 export default function Orrery({
   bodies,
+  orbits,
   geocentricBodies,
   light,
   locale,
@@ -64,6 +88,8 @@ export default function Orrery({
   const mount = useRef<HTMLDivElement>(null);
   const liveBodies = useRef(bodies);
   liveBodies.current = bodies;
+  const liveOrbits = useRef(orbits);
+  liveOrbits.current = orbits;
   const liveGeocentric = useRef(geocentricBodies);
   liveGeocentric.current = geocentricBodies;
   const liveTransition = useRef({ exiting, onExitComplete });
@@ -154,8 +180,11 @@ export default function Orrery({
     orbitGuides.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
+    const orbitById = new Map<string, THREE.Line>();
     let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
+      const path = liveOrbits.current.find((orbit) => orbit.id === body.id);
+      if (!path) continue;
       if (body.parent) {
         const material = new THREE.LineBasicMaterial({
           color: light ? 0x71858e : 0x7995a2,
@@ -164,8 +193,9 @@ export default function Orrery({
         });
         material.userData.baseOpacity = material.opacity;
         orbitMaterials.push(material);
-        moonOrbit = new THREE.Line(orbitGeometry(MOON_ORBIT_RADIUS), material);
+        moonOrbit = new THREE.Line(orbitGeometry(path.points.length), material);
         world.add(moonOrbit);
+        orbitById.set(body.id, moonOrbit);
       } else {
         const material = new THREE.LineBasicMaterial({
           color: light ? 0x607984 : 0x41616d,
@@ -174,12 +204,12 @@ export default function Orrery({
         });
         material.userData.baseOpacity = material.opacity;
         orbitMaterials.push(material);
-        orbitGuides.add(
-          new THREE.Line(
-            orbitGeometry(compressedDistance(body.orbit)),
-            material,
-          ),
+        const line = new THREE.Line(
+          orbitGeometry(path.points.length),
+          material,
         );
+        orbitGuides.add(line);
+        orbitById.set(body.id, line);
       }
       const group = new THREE.Group();
       group.add(
@@ -215,6 +245,18 @@ export default function Orrery({
       markerById.set(body.id, group);
       world.add(group);
     }
+
+    let renderedOrbits: typeof orbits | null = null;
+    const updateOrbits = () => {
+      if (renderedOrbits === liveOrbits.current) return;
+      renderedOrbits = liveOrbits.current;
+      for (const orbit of renderedOrbits) {
+        const line = orbitById.get(orbit.id);
+        if (line)
+          updateOrbitGeometry(line, orbit.points, Boolean(orbit.parent));
+      }
+    };
+    updateOrbits();
 
     const geocentricPosition = (id: string) => {
       if (id === 'Earth') return new THREE.Vector3();
@@ -279,12 +321,8 @@ export default function Orrery({
         }
       }
       const moon = currentBodies.find((body) => body.id === 'Moon');
-      if (moonOrbit && moon?.orbitNormal) {
+      if (moonOrbit && moon) {
         moonOrbit.position.copy(earthPosition);
-        moonOrbit.quaternion.setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3(...moon.orbitNormal).normalize(),
-        );
       }
       const orbitScale = 0.18 + progress * 0.82;
       orbitGuides.scale.setScalar(orbitScale);
@@ -312,6 +350,7 @@ export default function Orrery({
     let exitNotified = false;
     const render = () => {
       frame = requestAnimationFrame(render);
+      updateOrbits();
       const now = performance.now();
       const dt = Math.min(0.06, (now - previous) / 1000);
       previous = now;
@@ -364,7 +403,11 @@ export default function Orrery({
       {failure && <p className="scene-error">{tr(failure)}</p>}
       <div className="orrery-scale-note">
         <b>{tr('太陽中心')}</b>
-        <span>{tr('距離は対数圧縮・天体サイズと月軌道は模式表示')}</span>
+        <span>
+          {tr(
+            '軌道線は指定日時の接触軌道・距離は対数圧縮・天体サイズと月までの距離は拡大表示',
+          )}
+        </span>
       </div>
     </div>
   );

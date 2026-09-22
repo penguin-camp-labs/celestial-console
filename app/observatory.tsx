@@ -74,6 +74,7 @@ import {
   parseInput,
   signPosition,
   solarSystem,
+  solarOrbits,
   validateSaved,
 } from '@/lib/engine.mjs';
 import {
@@ -799,6 +800,10 @@ export default function Home() {
     () => solarSystem(observationTime),
     [observationTime],
   );
+  const orreryOrbits = useMemo(
+    () => (orrery ? solarOrbits(observationTime) : []),
+    [orrery, observationTime],
+  );
   const houseResult = useMemo(
     () => houseCusps({ ...baseChart, latitude }, houseSystem),
     [baseChart, latitude, houseSystem],
@@ -1143,6 +1148,7 @@ export default function Home() {
           {ready && orrery && (
             <Orrery
               bodies={solarSystemBodies}
+              orbits={orreryOrbits}
               geocentricBodies={chart.bodies}
               light={appearance.light}
               locale={locale}

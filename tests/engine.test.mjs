@@ -12,6 +12,7 @@ import {
   localInput,
   validateSaved,
   solarSystem,
+  solarOrbits,
   MIN_TIME,
   MAX_TIME,
 } from '../lib/engine.mjs';
@@ -68,6 +69,47 @@ test('solar system model returns heliocentric positions with Earth at about one 
     assert.ok(Number.isFinite(body.y));
     assert.ok(Number.isFinite(body.z));
     assert.ok(body.distance > 0);
+  }
+});
+
+test('osculating orbit guides pass through current 3D planet and Moon positions', () => {
+  for (const time of [
+    Date.UTC(1800, 0, 1),
+    Date.UTC(2026, 8, 21),
+    Date.UTC(2200, 0, 1),
+  ]) {
+    const bodies = solarSystem(time);
+    const earth = bodies.find((body) => body.id === 'Earth');
+    const orbits = solarOrbits(time);
+    assert.equal(orbits.length, bodies.length);
+    for (const orbit of orbits) {
+      const body = bodies.find((item) => item.id === orbit.id);
+      const origin = orbit.parent ? earth : { x: 0, y: 0, z: 0 };
+      assert.equal(orbit.points.length, 129);
+      assert.ok(orbit.points.every((point) => point.every(Number.isFinite)));
+      assert.ok(
+        Math.hypot(
+          orbit.points[0][0] - (body.x - origin.x),
+          orbit.points[0][1] - (body.y - origin.y),
+          orbit.points[0][2] - (body.z - origin.z),
+        ) < 1e-7,
+        orbit.id,
+      );
+      assert.ok(
+        Math.hypot(
+          ...orbit.points[0].map(
+            (value, axis) => value - orbit.points.at(-1)[axis],
+          ),
+        ) < 1e-9,
+        orbit.id,
+      );
+    }
+    const mercury = orbits.find((orbit) => orbit.id === 'Mercury');
+    assert.ok(Math.max(...mercury.points.map((point) => point[1])) > 0.01);
+    assert.ok(
+      Math.min(...mercury.points.map((point) => Math.hypot(...point))) <
+        Math.max(...mercury.points.map((point) => Math.hypot(...point))) - 0.05,
+    );
   }
 });
 test('known equinox and total solar eclipse are geometrically consistent', () => {
