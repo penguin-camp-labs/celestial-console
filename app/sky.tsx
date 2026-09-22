@@ -3,6 +3,7 @@ import { configureDepthDimming } from '@/lib/depth-dimming.mjs';
 import { t as tr } from './use-locale';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { createPlanetMaterial } from '@/lib/planet-materials';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLYPHS, DEG, wrap } from '@/lib/engine.mjs';
 import { houseCusps, houseBoundaryCurves } from '@/lib/houses.mjs';
@@ -85,7 +86,14 @@ export default function Sky(props: Props) {
     const scene = new THREE.Scene();
     const world = new THREE.Group();
     scene.add(world);
-    const orbitCamera = new THREE.OrthographicCamera(-400, 400, 300, -300, 0.1, 4000);
+    const orbitCamera = new THREE.OrthographicCamera(
+      -400,
+      400,
+      300,
+      -300,
+      0.1,
+      4000,
+    );
     orbitCamera.position.copy(
       live.current.flat
         ? new THREE.Vector3(0.001, 750, 0)
@@ -224,17 +232,12 @@ export default function Sky(props: Props) {
       l.position.copy(v(i * 30 + 15, 0, 282));
     });
     const earthG = new THREE.SphereGeometry(9, 32, 24);
-    const earthM = new THREE.MeshPhongMaterial({
-      color: '#8fe6e0',
-      specular: '#080b0e',
-      shininess: 8,
-      emissive: '#8fe6e0',
-      emissiveIntensity: 0.025,
-    });
+    const earthM = createPlanetMaterial('Earth', '#8fe6e0');
     const earth = new THREE.Mesh(earthG, earthM);
     earthM.userData.bodyMaterial = true;
     world.add(earth);
     disposable.push(earthG, earthM);
+    if (earthM.map) disposable.push(earthM.map);
     const earthLabel = label('EARTH', '#71989c', 9);
     earthLabel.position.set(0, -23, 0);
     function makeNode(b: any) {
@@ -249,20 +252,23 @@ export default function Sky(props: Props) {
       const geo = point
         ? new THREE.OctahedronGeometry(radius)
         : new THREE.SphereGeometry(radius, 28, 18);
-      const mat = new THREE.MeshPhongMaterial({
-        color: b.color,
-        specular: '#080b0e',
-        shininess: 8,
-        flatShading: point,
-        emissive: b.color,
-        emissiveIntensity: b.id === 'Sun' ? 0.12 : 0.025,
-      });
+      const mat = point
+        ? new THREE.MeshPhongMaterial({
+            color: b.color,
+            specular: '#080b0e',
+            shininess: 8,
+            flatShading: point,
+            emissive: b.color,
+            emissiveIntensity: b.id === 'Sun' ? 0.12 : 0.025,
+          })
+        : createPlanetMaterial(b.id, b.color);
       mat.userData.bodyMaterial = true;
       const mesh = new THREE.Mesh(geo, mat);
       mesh.userData.id = b.id;
       mesh.userData.radius = radius;
       world.add(mesh);
       disposable.push(geo, mat);
+      if (mat.map) disposable.push(mat.map);
       if (point) {
         const outlineGeometry = new THREE.EdgesGeometry(geo);
         const outlineMaterial = new THREE.LineBasicMaterial({
@@ -500,7 +506,11 @@ export default function Sky(props: Props) {
         const a = [...pointers.values()];
         const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
         if (pinch > 0 && d > 0)
-          groundCamera.fov = THREE.MathUtils.clamp((groundCamera.fov * pinch) / d, 35, 110);
+          groundCamera.fov = THREE.MathUtils.clamp(
+            (groundCamera.fov * pinch) / d,
+            35,
+            110,
+          );
         pinch = d;
         groundCamera.updateProjectionMatrix();
       } else {
@@ -523,7 +533,11 @@ export default function Sky(props: Props) {
       rotationPauseUntil = last + 5000;
       if (!live.current.observer || live.current.flat) return;
       e.preventDefault();
-      groundCamera.fov = THREE.MathUtils.clamp(groundCamera.fov + e.deltaY * 0.03, 35, 110);
+      groundCamera.fov = THREE.MathUtils.clamp(
+        groundCamera.fov + e.deltaY * 0.03,
+        35,
+        110,
+      );
       groundCamera.updateProjectionMatrix();
     }
     function up(e: PointerEvent) {
@@ -554,7 +568,8 @@ export default function Sky(props: Props) {
         else if (e.key === 'ArrowDown') altitude = Math.max(-89, altitude - 5);
         else if (e.key === '+' || e.key === '=')
           groundCamera.fov = Math.max(35, groundCamera.fov - 5);
-        else if (e.key === '-') groundCamera.fov = Math.min(110, groundCamera.fov + 5);
+        else if (e.key === '-')
+          groundCamera.fov = Math.min(110, groundCamera.fov + 5);
         else return;
         targetAzimuth = azimuth;
         targetAltitude = altitude;
@@ -564,7 +579,8 @@ export default function Sky(props: Props) {
       }
       if (e.key === '+' || e.key === '=')
         orbitCamera.zoom = Math.min(2.1, orbitCamera.zoom * 1.1);
-      else if (e.key === '-') orbitCamera.zoom = Math.max(0.65, orbitCamera.zoom / 1.1);
+      else if (e.key === '-')
+        orbitCamera.zoom = Math.max(0.65, orbitCamera.zoom / 1.1);
       else if (e.key.startsWith('Arrow') && !live.current.flat) {
         const s = new THREE.Spherical().setFromVector3(orbitCamera.position);
         if (e.key === 'ArrowLeft') s.theta -= 0.1;
@@ -1099,7 +1115,7 @@ export default function Sky(props: Props) {
         n.label.position.copy(v(n.lon, n.lat * (1 - morph), 239 - morph * 23));
         if (!ground) n.label.position.y += 9 * (1 - morph);
         n.label.material.opacity = p.selected && p.selected !== b.id ? 0.4 : 1;
-        n.mesh.material.color.set(b.color);
+        n.mesh.material.color.set(n.mesh.material.map ? '#ffffff' : b.color);
         n.mesh.scale.setScalar(p.selected === b.id ? 1.5 : 1);
         updateLine(n.tether, [v(n.lon, 0, 218), n.mesh.position]);
         n.tether.visible = p.grid && morph < 0.99 && !ground;
@@ -1201,7 +1217,9 @@ export default function Sky(props: Props) {
           configureDepthDimming(mat, depthUniforms);
           mat.color.set(
             mat.userData.bodyMaterial
-              ? mat.userData.themeColor
+              ? mat.map
+                ? '#ffffff'
+                : mat.userData.themeColor
               : mat.userData.bodyGlyph
                 ? bodyInkColor(mat.userData.themeColor, bright)
                 : o.userData.aspect
@@ -1231,7 +1249,8 @@ export default function Sky(props: Props) {
               ) *
               Math.tan((groundCamera.fov * DEG) / 2)) /
             viewHeight
-          : (orbitCamera.top - orbitCamera.bottom) / (viewHeight * orbitCamera.zoom);
+          : (orbitCamera.top - orbitCamera.bottom) /
+            (viewHeight * orbitCamera.zoom);
       if (labelLocale !== p.locale) {
         labelLocale = p.locale;
         refreshLabels();

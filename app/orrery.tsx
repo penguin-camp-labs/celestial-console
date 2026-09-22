@@ -2,6 +2,7 @@
 import { t as tr } from './use-locale';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { createPlanetMaterial, createSaturnRing } from '@/lib/planet-materials';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   CSS2DObject,
@@ -151,12 +152,7 @@ export default function Orrery({
 
     const sun = new THREE.Mesh(
       new THREE.SphereGeometry(12, 32, 20),
-      new THREE.MeshStandardMaterial({
-        color: 0xffc86b,
-        emissive: 0xff9e3d,
-        emissiveIntensity: light ? 0.75 : 1.3,
-        roughness: 0.72,
-      }),
+      createPlanetMaterial('Sun', '#ffc86b'),
     );
     world.add(sun);
 
@@ -214,26 +210,12 @@ export default function Orrery({
       const group = new THREE.Group();
       group.add(
         new THREE.Mesh(
-          new THREE.SphereGeometry(body.size, 24, 16),
-          new THREE.MeshStandardMaterial({
-            color: body.color,
-            roughness: 0.82,
-            metalness: 0.02,
-          }),
+          new THREE.SphereGeometry(body.size, 32, 24),
+          createPlanetMaterial(body.id, body.color),
         ),
       );
       if (body.id === 'Saturn') {
-        const ring = new THREE.Mesh(
-          new THREE.RingGeometry(body.size * 1.35, body.size * 2.05, 40),
-          new THREE.MeshBasicMaterial({
-            color: body.color,
-            transparent: true,
-            opacity: 0.62,
-            side: THREE.DoubleSide,
-          }),
-        );
-        ring.rotation.x = Math.PI / 2.35;
-        group.add(ring);
+        group.add(createSaturnRing(body.size));
       }
       const label = document.createElement('span');
       label.className = 'orrery-label';
@@ -387,7 +369,10 @@ export default function Orrery({
           const materials = Array.isArray(object.material)
             ? object.material
             : [object.material];
-          materials.forEach((material) => material.dispose());
+          materials.forEach((material) => {
+            (material as THREE.MeshBasicMaterial).map?.dispose();
+            material.dispose();
+          });
         }
       });
       labels.domElement.remove();

@@ -715,6 +715,11 @@ await test('themes preserve camera and chart geometry while solar daylight contr
     if (o.userData.id === 'Sun') sun = o;
   });
   const original = sun.position.clone();
+  const surface = sun.material.map;
+  let surfaceDisposed = false;
+  surface.addEventListener('dispose', () => {
+    surfaceDisposed = true;
+  });
   assert.equal(dome.visible, false);
   assert.equal(stars.children[0].material.opacity, 0.255);
   props = { ...props, theme: 'light' };
@@ -724,8 +729,10 @@ await test('themes preserve camera and chart geometry while solar daylight contr
   assert.ok(sun.position.distanceTo(original) < 0.0001);
   assert.equal(dome.visible, false);
   assert.equal(sun.material.isMeshPhongMaterial, true);
-  assert.ok(sun.material.shininess > 0);
-  assert.equal(sun.material.color.getHexString(), day.bodies[0].color.slice(1));
+  assert.equal(sun.material.shininess, 0);
+  assert.equal(sun.material.specular.getHexString(), '000000');
+  assert.equal(sun.material.map, surface);
+  assert.equal(sun.material.color.getHexString(), 'ffffff');
   props = { ...props, theme: 'sky' };
   await render();
   assert.equal(dome.visible, true);
@@ -745,8 +752,10 @@ await test('themes preserve camera and chart geometry while solar daylight contr
   props = { ...props, flat: false, theme: 'dark', chart: day };
   await render();
   assert.equal(dome.visible, false);
-  assert.equal(sun.material.color.getHexString(), day.bodies[0].color.slice(1));
+  assert.equal(sun.material.map, surface);
+  assert.equal(sun.material.color.getHexString(), 'ffffff');
   await act(async () => root.unmount());
+  assert.equal(surfaceDisposed, true);
 });
 
 await test('house changes render reference cusps without resetting the camera', async () => {
