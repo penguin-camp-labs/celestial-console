@@ -228,26 +228,47 @@ export function createPlanetMaterial(id: string, fallback: string) {
   return material;
 }
 
-export function createSaturnRing(radius: number) {
-  const geometry = new THREE.RingGeometry(radius * 1.28, radius * 2.12, 64);
+type RingStyle = {
+  inner: number;
+  outer: number;
+  tilt: number;
+  base: RGB;
+  highlight: RGB;
+  opacity: number;
+};
+
+function createRing(radius: number, style: RingStyle) {
+  const geometry = new THREE.RingGeometry(
+    radius * style.inner,
+    radius * style.outer,
+    64,
+  );
   const positions = geometry.getAttribute('position');
   const uv = geometry.getAttribute('uv');
   for (let i = 0; i < positions.count; i++)
     uv.setXY(
       i,
-      (Math.hypot(positions.getX(i), positions.getY(i)) / radius - 1.28) / 0.84,
+      (Math.hypot(positions.getX(i), positions.getY(i)) / radius -
+        style.inner) /
+        (style.outer - style.inner),
       0.5,
     );
   const pixels = new Uint8Array(128 * 4);
   for (let i = 0; i < 128; i++) {
     const r = i / 127;
     const color = blend(
-      [158, 143, 116],
-      [218, 207, 181],
+      style.base,
+      style.highlight,
       0.5 + Math.sin(r * 100) * 0.15,
     );
     const opacity =
-      r > 0.61 && r < 0.67 ? 0.08 : r < 0.2 ? 0.25 : r > 0.95 ? 0.2 : 0.68;
+      r > 0.61 && r < 0.67
+        ? style.opacity * 0.12
+        : r < 0.2
+          ? style.opacity * 0.38
+          : r > 0.95
+            ? style.opacity * 0.3
+            : style.opacity;
     pixels.set([...color.map(Math.round), Math.round(opacity * 255)], i * 4);
   }
   const map = new THREE.DataTexture(pixels, 128, 1);
@@ -263,6 +284,28 @@ export function createSaturnRing(radius: number) {
       depthWrite: false,
     }),
   );
-  ring.rotation.x = Math.PI / 2.35;
+  ring.rotation.x = style.tilt;
   return ring;
+}
+
+export function createSaturnRing(radius: number) {
+  return createRing(radius, {
+    inner: 1.28,
+    outer: 2.12,
+    tilt: Math.PI / 2.35,
+    base: [158, 143, 116],
+    highlight: [218, 207, 181],
+    opacity: 0.68,
+  });
+}
+
+export function createUranusRing(radius: number) {
+  return createRing(radius, {
+    inner: 1.14,
+    outer: 1.7,
+    tilt: Math.PI / 2.02,
+    base: [105, 132, 134],
+    highlight: [174, 197, 191],
+    opacity: 0.34,
+  });
 }

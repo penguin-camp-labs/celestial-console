@@ -2,7 +2,11 @@
 import { t as tr } from './use-locale';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { createPlanetMaterial, createSaturnRing } from '@/lib/planet-materials';
+import {
+  createPlanetMaterial,
+  createSaturnRing,
+  createUranusRing,
+} from '@/lib/planet-materials';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   CSS2DObject,
@@ -226,6 +230,8 @@ export default function Orrery({
       );
       if (body.id === 'Saturn') {
         rotator.add(createSaturnRing(body.size));
+      } else if (body.id === 'Uranus') {
+        rotator.add(createUranusRing(body.size));
       }
       group.add(rotator);
       rotatorById.set(body.id, rotator);
