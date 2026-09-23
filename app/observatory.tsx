@@ -1150,6 +1150,8 @@ export default function Home() {
               bodies={solarSystemBodies}
               orbits={orreryOrbits}
               geocentricBodies={chart.bodies}
+              time={observationTime}
+              playing={playing}
               light={appearance.light}
               locale={locale}
               reset={reset}

@@ -3,7 +3,7 @@ import { configureDepthDimming } from '@/lib/depth-dimming.mjs';
 import { t as tr } from './use-locale';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { createPlanetMaterial } from '@/lib/planet-materials';
+import { createPlanetMaterial, createSaturnRing } from '@/lib/planet-materials';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLYPHS, DEG, wrap } from '@/lib/engine.mjs';
 import { houseCusps, houseBoundaryCurves } from '@/lib/houses.mjs';
@@ -266,6 +266,12 @@ export default function Sky(props: Props) {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.userData.id = b.id;
       mesh.userData.radius = radius;
+      if (b.id === 'Saturn' && !point) {
+        const ring = createSaturnRing(radius);
+        mesh.add(ring);
+        disposable.push(ring.geometry, ring.material as THREE.Material);
+        if (ring.material.map) disposable.push(ring.material.map);
+      }
       world.add(mesh);
       disposable.push(geo, mat);
       if (mat.map) disposable.push(mat.map);

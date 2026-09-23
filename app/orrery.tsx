@@ -8,6 +8,8 @@ import {
   CSS2DObject,
   CSS2DRenderer,
 } from 'three/addons/renderers/CSS2DRenderer.js';
+import { DisplayClock } from '@/lib/clock.mjs';
+import { planetRotationAngle } from '@/lib/engine.mjs';
 
 type OrreryBody = {
   id: string;
@@ -29,6 +31,8 @@ type Props = {
   bodies: OrreryBody[];
   orbits: { id: string; parent?: string; points: number[][] }[];
   geocentricBodies: { id: string; lon: number; lat: number }[];
+  time: number;
+  playing: boolean;
   light: boolean;
   locale: string;
   reset: number;
@@ -79,6 +83,8 @@ export default function Orrery({
   bodies,
   orbits,
   geocentricBodies,
+  time,
+  playing,
   light,
   locale,
   reset,
@@ -93,6 +99,8 @@ export default function Orrery({
   liveOrbits.current = orbits;
   const liveGeocentric = useRef(geocentricBodies);
   liveGeocentric.current = geocentricBodies;
+  const livePlayback = useRef({ time, playing });
+  livePlayback.current = { time, playing };
   const liveTransition = useRef({ exiting, onExitComplete });
   liveTransition.current = { exiting, onExitComplete };
   const resetCamera = useRef<(() => void) | null>(null);
@@ -155,6 +163,7 @@ export default function Orrery({
       createPlanetMaterial('Sun', '#ffc86b'),
     );
     world.add(sun);
+    const rotatorById = new Map<string, THREE.Object3D>([['Sun', sun]]);
 
     const orbitGuides = new THREE.Group();
     world.add(orbitGuides);
@@ -208,15 +217,18 @@ export default function Orrery({
         orbitById.set(body.id, line);
       }
       const group = new THREE.Group();
-      group.add(
+      const rotator = new THREE.Group();
+      rotator.add(
         new THREE.Mesh(
           new THREE.SphereGeometry(body.size, 32, 24),
           createPlanetMaterial(body.id, body.color),
         ),
       );
       if (body.id === 'Saturn') {
-        group.add(createSaturnRing(body.size));
+        rotator.add(createSaturnRing(body.size));
       }
+      group.add(rotator);
+      rotatorById.set(body.id, rotator);
       const label = document.createElement('span');
       label.className = 'orrery-label';
       label.textContent = `${body.symbol} ${tr(body.name)}`;
@@ -239,6 +251,17 @@ export default function Orrery({
       }
     };
     updateOrbits();
+    const spinClock = new DisplayClock();
+    const updateRotation = (now: number) => {
+      const spinTime = spinClock.sample(
+        livePlayback.current.time,
+        now,
+        livePlayback.current.playing && !reduced,
+      );
+      rotatorById.forEach((rotator, id) => {
+        rotator.rotation.y = planetRotationAngle(id, spinTime);
+      });
+    };
 
     const geocentricPosition = (id: string) => {
       if (id === 'Earth') return new THREE.Vector3();
@@ -314,6 +337,7 @@ export default function Orrery({
     };
     let transition = reduced ? 1 : 0;
     updateBodies(transition);
+    updateRotation(performance.now());
 
     const resize = () => {
       const width = host.clientWidth;
@@ -336,6 +360,7 @@ export default function Orrery({
       const now = performance.now();
       const dt = Math.min(0.06, (now - previous) / 1000);
       previous = now;
+      updateRotation(now);
       const leaving = liveTransition.current.exiting;
       const direction = leaving ? -1 : 1;
       transition = THREE.MathUtils.clamp(

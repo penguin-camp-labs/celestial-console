@@ -13,9 +13,13 @@ import {
   validateSaved,
   solarSystem,
   solarOrbits,
+  DAY,
   MIN_TIME,
   MAX_TIME,
+  PLANET_ROTATION_PERIOD_DAYS,
+  planetRotationAngle,
 } from '../lib/engine.mjs';
+import { DisplayClock } from '../lib/clock.mjs';
 import { spherePoint, morphPoint } from '../lib/geometry.mjs';
 test('time input round trips across UTC offsets, leap days and year boundaries', () => {
   for (const offset of [-720, -210, 0, 330, 345, 540, 765, 840])
@@ -70,6 +74,27 @@ test('solar system model returns heliocentric positions with Earth at about one 
     assert.ok(Number.isFinite(body.z));
     assert.ok(body.distance > 0);
   }
+});
+
+test('planet rotation periods preserve direction and complete one turn', () => {
+  const j2000Noon = Date.UTC(2000, 0, 1, 12);
+  const earthTurn = planetRotationAngle(
+    'Earth',
+    j2000Noon + PLANET_ROTATION_PERIOD_DAYS.Earth * DAY,
+  );
+  assert.ok(Math.abs(earthTurn - 2 * Math.PI) < 1e-9);
+  assert.ok(planetRotationAngle('Venus', j2000Noon + DAY) < 0);
+  assert.equal(planetRotationAngle('unknown', j2000Noon), 0);
+  assert.ok(PLANET_ROTATION_PERIOD_DAYS.Jupiter < 1);
+});
+
+test('display clock interpolates timeline samples while playing', () => {
+  const clock = new DisplayClock();
+  clock.sample(0, 0, true);
+  clock.sample(1000, 100, true);
+  assert.equal(clock.value(100), 0);
+  assert.ok(clock.value(150) > 0 && clock.value(150) < 1000);
+  assert.equal(clock.value(250), 1000);
 });
 
 test('osculating orbit guides pass through current 3D planet and Moon positions', () => {

@@ -128,6 +128,10 @@ await test('actual Three scene updates planets, aspects and continuous 2D/3D tra
   });
   assert.equal(bodies.length, 10);
   assert.equal(edges.length, 45);
+  const saturn = bodies.find((body) => body.userData.id === 'Saturn');
+  assert.ok(
+    saturn?.children.some((child) => child.geometry?.type === 'RingGeometry'),
+  );
   for (const b of bodies)
     assert.ok(Math.abs(b.position.length() - 218) < 0.001);
   assert.equal(
