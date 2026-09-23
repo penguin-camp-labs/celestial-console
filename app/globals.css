@@ -2629,6 +2629,25 @@ html[data-scheme='light'] .orb-meter i {
   }
 }
 @media (max-width: 700px) {
+  html,
+  body,
+  #root,
+  .observatory {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .observatory:not(.is-live) .workspace,
+  .observatory:not(.is-live) .stage,
+  .observatory:not(.is-live) .telemetry {
+    width: 100%;
+    min-width: 0;
+  }
+  .observatory:not(.is-live) .sky-host,
+  .observatory:not(.is-live) .sky-host canvas,
+  .observatory:not(.is-live) .orrery-label-layer {
+    max-width: 100%;
+  }
   .observatory:not(.is-live) .stage {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2670,10 +2689,6 @@ html[data-scheme='light'] .orb-meter i {
     left: 16px;
     bottom: 14px;
     max-width: calc(100% - 80px);
-    font-size: 11px;
-  }
-  .orrery-label {
-    padding: 2px 5px;
     font-size: 11px;
   }
   .observatory:not(.is-live) .sky-host {
