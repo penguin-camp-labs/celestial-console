@@ -1,0 +1,6 @@
+CELESTIAL ? 天球ホロスコープ
+
+Copyright (c) 2026 Setsuna SHIROSAKI
+Created with assistance from GPT-6 Astra.
+
+See /third-party-notices.txt for third-party software, font, and data notices.
