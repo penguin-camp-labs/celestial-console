@@ -288,22 +288,22 @@ function createRing(radius: number, style: RingStyle) {
   return ring;
 }
 
-export function createSaturnRing(radius: number) {
+export function createSaturnRing(radius: number, equatorial = false) {
   return createRing(radius, {
     inner: 1.28,
     outer: 2.12,
-    tilt: Math.PI / 2.35,
+    tilt: equatorial ? Math.PI / 2 : Math.PI / 2.35,
     base: [158, 143, 116],
     highlight: [218, 207, 181],
     opacity: 0.68,
   });
 }
 
-export function createUranusRing(radius: number) {
+export function createUranusRing(radius: number, equatorial = false) {
   return createRing(radius, {
     inner: 1.14,
     outer: 1.7,
-    tilt: Math.PI / 2.02,
+    tilt: equatorial ? Math.PI / 2 : Math.PI / 2.02,
     base: [105, 132, 134],
     highlight: [174, 197, 191],
     opacity: 0.34,

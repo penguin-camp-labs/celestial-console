@@ -13,7 +13,7 @@ import {
   CSS2DRenderer,
 } from 'three/addons/renderers/CSS2DRenderer.js';
 import { DisplayClock } from '@/lib/clock.mjs';
-import { planetRotationAngle } from '@/lib/engine.mjs';
+import { planetRotationAngle, planetRotationAxis } from '@/lib/engine.mjs';
 
 type OrreryBody = {
   id: string;
@@ -229,9 +229,9 @@ export default function Orrery({
         ),
       );
       if (body.id === 'Saturn') {
-        rotator.add(createSaturnRing(body.size));
+        rotator.add(createSaturnRing(body.size, true));
       } else if (body.id === 'Uranus') {
-        rotator.add(createUranusRing(body.size));
+        rotator.add(createUranusRing(body.size, true));
       }
       group.add(rotator);
       rotatorById.set(body.id, rotator);
@@ -258,6 +258,10 @@ export default function Orrery({
     };
     updateOrbits();
     const spinClock = new DisplayClock();
+    const localNorth = new THREE.Vector3(0, 1, 0);
+    const rotationAxis = new THREE.Vector3();
+    const axisQuaternion = new THREE.Quaternion();
+    const spinQuaternion = new THREE.Quaternion();
     const updateRotation = (now: number) => {
       const spinTime = spinClock.sample(
         livePlayback.current.time,
@@ -265,7 +269,13 @@ export default function Orrery({
         livePlayback.current.playing && !reduced,
       );
       rotatorById.forEach((rotator, id) => {
-        rotator.rotation.y = planetRotationAngle(id, spinTime);
+        rotationAxis.fromArray(planetRotationAxis(id, spinTime)).normalize();
+        axisQuaternion.setFromUnitVectors(localNorth, rotationAxis);
+        spinQuaternion.setFromAxisAngle(
+          localNorth,
+          planetRotationAngle(id, spinTime),
+        );
+        rotator.quaternion.copy(axisQuaternion).multiply(spinQuaternion);
       });
     };
 

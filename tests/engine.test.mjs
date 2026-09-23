@@ -18,6 +18,7 @@ import {
   MAX_TIME,
   PLANET_ROTATION_PERIOD_DAYS,
   planetRotationAngle,
+  planetRotationAxis,
 } from '../lib/engine.mjs';
 import { DisplayClock } from '../lib/clock.mjs';
 import { spherePoint, morphPoint } from '../lib/geometry.mjs';
@@ -86,6 +87,14 @@ test('planet rotation periods preserve direction and complete one turn', () => {
   assert.ok(planetRotationAngle('Venus', j2000Noon + DAY) < 0);
   assert.equal(planetRotationAngle('unknown', j2000Noon), 0);
   assert.ok(PLANET_ROTATION_PERIOD_DAYS.Jupiter < 1);
+  const uranusAxis = planetRotationAxis('Uranus', j2000Noon);
+  assert.ok(Math.abs(Math.hypot(...uranusAxis) - 1) < 1e-12);
+  assert.ok(Math.abs(uranusAxis[1]) < 0.3);
+  for (const id of Object.keys(PLANET_ROTATION_PERIOD_DAYS))
+    assert.ok(
+      Math.abs(Math.hypot(...planetRotationAxis(id, j2000Noon)) - 1) < 1e-12,
+      id,
+    );
 });
 
 test('display clock interpolates timeline samples while playing', () => {
