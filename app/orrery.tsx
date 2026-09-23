@@ -189,6 +189,7 @@ export default function Orrery({
     orbitGuides.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
+    const labelElements: HTMLElement[] = [];
     const orbitById = new Map<string, THREE.Line>();
     let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
@@ -242,6 +243,7 @@ export default function Orrery({
       const labelObject = new CSS2DObject(label);
       labelObject.position.set(0, body.size + 8, 0);
       group.add(labelObject);
+      labelElements.push(label);
       markerById.set(body.id, group);
       world.add(group);
     }
@@ -277,6 +279,41 @@ export default function Orrery({
         );
         rotator.quaternion.copy(axisQuaternion).multiply(spinQuaternion);
       });
+    };
+    const layoutMobileLabels = () => {
+      if (host.clientWidth > 600) return;
+      const items = labelElements
+        .map((element) => {
+          element.style.marginTop = '0px';
+          const rect = element.getBoundingClientRect();
+          return { element, rect };
+        })
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0)
+        .sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
+      const placed: DOMRect[] = [];
+      for (const item of items) {
+        let shift = 0;
+        while (
+          placed.some(
+            (rect) =>
+              item.rect.left < rect.right &&
+              item.rect.right > rect.left &&
+              item.rect.top + shift < rect.bottom &&
+              item.rect.bottom + shift > rect.top,
+          ) &&
+          shift < 120
+        )
+          shift += item.rect.height + 4;
+        item.element.style.marginTop = `${shift}px`;
+        placed.push(
+          new DOMRect(
+            item.rect.left,
+            item.rect.top + shift,
+            item.rect.width,
+            item.rect.height,
+          ),
+        );
+      }
     };
 
     const geocentricPosition = (id: string) => {
@@ -359,6 +396,7 @@ export default function Orrery({
       const width = host.clientWidth;
       const height = host.clientHeight;
       camera.aspect = width / Math.max(height, 1);
+      camera.fov = width < 600 ? 46 : 38;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
       labels.setSize(width, height);
@@ -390,6 +428,7 @@ export default function Orrery({
       controls.update();
       renderer.render(scene, camera);
       labels.render(scene, camera);
+      layoutMobileLabels();
       if (leaving && transition === 0 && !exitNotified) {
         exitNotified = true;
         queueMicrotask(() => liveTransition.current.onExitComplete());

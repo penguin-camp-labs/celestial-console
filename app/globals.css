@@ -2672,6 +2672,10 @@ html[data-scheme='light'] .orb-meter i {
     max-width: calc(100% - 80px);
     font-size: 11px;
   }
+  .orrery-label {
+    padding: 2px 5px;
+    font-size: 11px;
+  }
   .observatory:not(.is-live) .sky-host {
     position: relative;
     inset: auto;
