@@ -189,6 +189,7 @@ export default function Orrery({
     orbitGuides.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
+    const labelOffsetById = new Map<string, number>();
     const orbitById = new Map<string, THREE.Line>();
     let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
@@ -240,13 +241,30 @@ export default function Orrery({
       label.textContent = `${body.symbol} ${tr(body.name)}`;
       label.title = `${body.distance.toFixed(3)} AU`;
       const labelObject = new CSS2DObject(label);
-      labelObject.position.set(0, body.size + 8, 0);
+      labelOffsetById.set(body.id, body.size + 8);
       group.add(labelObject);
       markerById.set(body.id, group);
       world.add(group);
     }
 
     let renderedOrbits: typeof orbits | null = null;
+    const updateLabelOffsets = () => {
+      const screenUp = new THREE.Vector3(0, 1, 0).applyQuaternion(
+        camera.quaternion,
+      );
+      const inverseMarkerRotation = new THREE.Quaternion();
+      const localUp = new THREE.Vector3();
+      for (const [id, marker] of markerById) {
+        const label = marker.children.find(
+          (child) => child instanceof CSS2DObject,
+        );
+        if (!(label instanceof CSS2DObject)) continue;
+        marker.getWorldQuaternion(inverseMarkerRotation).invert();
+        localUp.copy(screenUp).applyQuaternion(inverseMarkerRotation);
+        label.position.copy(localUp).multiplyScalar(labelOffsetById.get(id) ?? 8);
+      }
+    };
+
     const updateOrbits = () => {
       if (renderedOrbits === liveOrbits.current) return;
       renderedOrbits = liveOrbits.current;
@@ -389,6 +407,7 @@ export default function Orrery({
       controls.enabled = transition === 1 && !leaving;
       controls.update();
       renderer.render(scene, camera);
+      updateLabelOffsets();
       labels.render(scene, camera);
       if (leaving && transition === 0 && !exitNotified) {
         exitNotified = true;
