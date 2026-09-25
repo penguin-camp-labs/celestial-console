@@ -189,7 +189,6 @@ export default function Orrery({
     orbitGuides.add(ecliptic);
 
     const markerById = new Map<string, THREE.Group>();
-    const labelOffsetById = new Map<string, number>();
     const orbitById = new Map<string, THREE.Line>();
     let moonOrbit: THREE.Line | null = null;
     for (const body of liveBodies.current) {
@@ -241,7 +240,6 @@ export default function Orrery({
       label.textContent = `${body.symbol} ${tr(body.name)}`;
       label.title = `${body.distance.toFixed(3)} AU`;
       const labelObject = new CSS2DObject(label);
-      labelOffsetById.set(body.id, body.size + 8);
       group.add(labelObject);
       markerById.set(body.id, group);
       world.add(group);
@@ -254,6 +252,10 @@ export default function Orrery({
       );
       const inverseMarkerRotation = new THREE.Quaternion();
       const localUp = new THREE.Vector3();
+      const markerPosition = new THREE.Vector3();
+      const worldPerPixel =
+        (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) /
+        Math.max(host.clientHeight, 1);
       for (const [id, marker] of markerById) {
         const label = marker.children.find(
           (child) => child instanceof CSS2DObject,
@@ -261,7 +263,14 @@ export default function Orrery({
         if (!(label instanceof CSS2DObject)) continue;
         marker.getWorldQuaternion(inverseMarkerRotation).invert();
         localUp.copy(screenUp).applyQuaternion(inverseMarkerRotation);
-        label.position.copy(localUp).multiplyScalar(labelOffsetById.get(id) ?? 8);
+        marker.getWorldPosition(markerPosition);
+        const depth = camera.position.distanceTo(markerPosition);
+        const labelHalfHeight = Math.max(label.element.offsetHeight / 2, 12);
+        const body = liveBodies.current.find((item) => item.id === id);
+        const surfaceAndGap = (labelHalfHeight + 4) * depth * worldPerPixel;
+        label.position
+          .copy(localUp)
+          .multiplyScalar((body?.size ?? 0) + surfaceAndGap);
       }
     };
 
