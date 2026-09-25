@@ -387,7 +387,7 @@ export default function Orrery({
       const height = host.clientHeight;
       camera.aspect = width / Math.max(height, 1);
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);
+      renderer.setSize(width, height);
       labels.setSize(width, height);
     };
     const observer = new ResizeObserver(resize);
