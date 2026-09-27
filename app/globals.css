@@ -2120,7 +2120,7 @@ input[type='datetime-local'] {
   font-size: 14px;
   min-height: 40px;
   padding: 7px 10px;
-  max-width: 140px;
+  max-width: 210px;
 }
 .theme-control select:focus-visible,
 .live-actions select:focus-visible {
@@ -2364,7 +2364,7 @@ html[data-scheme='light'] .live-actions button {
     gap: 8px;
   }
   .theme-control select {
-    max-width: 110px;
+    max-width: 175px;
   }
   .live-bar {
     flex-wrap: wrap;
@@ -2374,7 +2374,7 @@ html[data-scheme='light'] .live-actions button {
     justify-content: flex-end;
   }
   .live-actions select {
-    max-width: 108px;
+    max-width: 175px;
   }
   .live-clock {
     flex: 1;

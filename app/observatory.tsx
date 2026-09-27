@@ -191,7 +191,7 @@ function HelpDialog() {
             <strong>{tr('テーマ')}</strong>
             <br />
             {tr(
-              'ライト・ダーク・現地の空を切り替えられます。「現地の空」は選択中の地点・日時での太陽高度から、晴天の昼・薄明・夜を近似表示します。地上視点では地平線と太陽の方角に空の色が対応し、昼は背景の恒星が見えなくなります。天体マーカーとアスペクトは読み取り用に残ります。天候・月明かり・光害・大気の状態は含まず、実際の輝度を測定した表示ではありません。2Dでは読みやすい明暗の盤面に切り替わります。「今の星を眺める」でも選んだテーマが適用されます。',
+              'ライト・ダーク・システム設定に従う・現地の空を切り替えられます。「システム設定に従う」は端末のライト／ダーク設定に合わせ、設定の変更にも自動で追従します。「現地の空」は選択中の地点・日時での太陽高度から、晴天の昼・薄明・夜を近似表示します。地上視点では地平線と太陽の方角に空の色が対応し、昼は背景の恒星が見えなくなります。天体マーカーとアスペクトは読み取り用に残ります。天候・月明かり・光害・大気の状態は含まず、実際の輝度を測定した表示ではありません。2Dでは読みやすい明暗の盤面に切り替わります。「今の星を眺める」でも選んだテーマが適用されます。',
             )}
           </p>
           <p>
@@ -287,6 +287,16 @@ export default function Home() {
   }, []);
   const [dimBack, setDimBack] = useState(false);
   const [theme, setTheme] = useState('dark');
+  const [systemLight, setSystemLight] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const update = () => setSystemLight(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const resolvedTheme =
+    theme === 'system' ? (systemLight ? 'light' : 'dark') : theme;
   const [savePreferences, setSavePreferences] = useState(false);
   const [lilithType, setLilithType] = useState('true');
   const [time, setTime] = useState(Date.UTC(2026, 8, 10));
@@ -809,8 +819,8 @@ export default function Home() {
     [baseChart, latitude, houseSystem],
   );
   const appearance = useMemo(
-    () => themeAppearance(theme, baseChart),
-    [theme, baseChart],
+    () => themeAppearance(resolvedTheme, baseChart),
+    [resolvedTheme, baseChart],
   );
   const uiAspectColor = (color: string) =>
     aspectInkColor(color, appearance.light);
@@ -1164,7 +1174,7 @@ export default function Home() {
             <Sky
               dimBack={dimBack}
               locale={locale}
-              theme={theme}
+              theme={resolvedTheme}
               chart={chart}
               focus={liveMode}
               autoRotate={liveMode && autoRotate}

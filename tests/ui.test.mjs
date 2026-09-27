@@ -623,6 +623,92 @@ await test('theme selection reaches portals, live viewing and restored observati
   await act(async () => root.unmount());
 });
 
+await test('system theme follows OS changes in the chart and live view, preserves manual choices and restores the saved mode', async () => {
+  localStorage.clear();
+  const originalMatchMedia = window.matchMedia;
+  const listeners = new Set();
+  const media = {
+    matches: true,
+    addEventListener(type, listener) {
+      if (type === 'change') listeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      if (type === 'change') listeners.delete(listener);
+    },
+  };
+  window.matchMedia = (query) =>
+    query === '(prefers-color-scheme: light)'
+      ? media
+      : originalMatchMedia(query);
+  const osTheme = async (light) => {
+    await act(async () => {
+      media.matches = light;
+      for (const listener of listeners) listener({ matches: light });
+    });
+    await flush();
+  };
+  const choose = async (label, value) => {
+    const el = byLabel(label);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value',
+      ).set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+  };
+  try {
+    root = createRoot(document.getElementById('root'));
+    await act(async () => root.render(createElement(Home)));
+    await flush();
+    const time = globalThis.__skyProps.chart.time;
+    await choose('テーマ', 'system');
+    assert.equal(document.documentElement.dataset.theme, 'system');
+    assert.equal(document.documentElement.dataset.scheme, 'light');
+    assert.equal(globalThis.__skyProps.theme, 'light');
+    await osTheme(false);
+    assert.equal(document.documentElement.dataset.scheme, 'dark');
+    assert.equal(globalThis.__skyProps.theme, 'dark');
+    assert.equal(globalThis.__skyProps.chart.time, time);
+    await choose('テーマ', 'light');
+    await osTheme(true);
+    await osTheme(false);
+    assert.equal(document.documentElement.dataset.scheme, 'light');
+    await choose('テーマ', 'dark');
+    await osTheme(true);
+    assert.equal(document.documentElement.dataset.scheme, 'dark');
+    await click(button('今の星を眺める'));
+    await choose('眺めるモードのテーマ', 'system');
+    assert.equal(globalThis.__skyProps.theme, 'light');
+    await osTheme(false);
+    assert.equal(globalThis.__skyProps.theme, 'dark');
+    assert.equal(globalThis.__skyProps.focus, true);
+    await click(byLabel('眺めるモードを終了'));
+    assert.equal(byLabel('テーマ').value, 'system');
+    assert.equal(globalThis.__skyProps.chart.time, time);
+    assert.equal(localStorage.length, 0);
+    await click(byLabel('このブラウザに表示設定を保存'));
+    assert.equal(
+      JSON.parse(localStorage.getItem('celestial.preferences.v1')).theme,
+      'system',
+    );
+    await act(async () => root.unmount());
+    assert.equal(listeners.size, 0);
+    media.matches = true;
+    root = createRoot(document.getElementById('root'));
+    await act(async () => root.render(createElement(Home)));
+    await flush();
+    assert.equal(byLabel('テーマ').value, 'system');
+    assert.equal(document.documentElement.dataset.scheme, 'light');
+    assert.equal(globalThis.__skyProps.theme, 'light');
+  } finally {
+    await act(async () => root.unmount());
+    window.matchMedia = originalMatchMedia;
+    localStorage.clear();
+  }
+});
+
 await test('house selector retains the system and explains polar Placidus failure', async () => {
   localStorage.clear();
   root = createRoot(document.getElementById('root'));
