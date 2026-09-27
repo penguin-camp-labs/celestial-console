@@ -6,7 +6,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "node scripts/build-credits.mjs",
     "dev": "vite --configLoader native",
+    "prebuild": "node scripts/build-credits.mjs",
     "build": "vite build --configLoader native && node scripts/secure-static.mjs",
     "start": "vite preview --host 127.0.0.1",
     "lint": "oxlint",

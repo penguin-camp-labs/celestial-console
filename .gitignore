@@ -39,4 +39,5 @@ next-env.d.ts
 
 /.test-build/
 *.tsbuildinfo
+/public/credits.html
 

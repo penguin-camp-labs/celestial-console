@@ -1,0 +1,342 @@
+@font-face {
+  font-family: 'BIZ UDPGothic';
+  src: url('/fonts/BIZUDPGothic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BIZ UDPGothic';
+  src: url('/fonts/BIZUDPGothic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  --bg: #060c12;
+  --panel: #0b151f;
+  --text: #e8f1f4;
+  --muted: #a1b3bf;
+  --accent: #78eee2;
+  --border: #28404d;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'BIZ UDPGothic', sans-serif;
+  line-height: 1.9;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 0.3em;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: 3px;
+}
+.site-header,
+main,
+footer {
+  max-width: 1120px;
+  margin: auto;
+  padding-inline: 40px;
+}
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding-block: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  color: var(--text);
+  font-family: 'Source Code Pro', monospace;
+  letter-spacing: 0.18em;
+  font-size: 20px;
+  text-decoration: none;
+}
+.brand span {
+  display: block;
+  color: var(--muted);
+  font-family: 'BIZ UDPGothic', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.back-link {
+  font-size: 12px;
+}
+.intro {
+  padding-block: 70px 48px;
+}
+.eyebrow {
+  color: var(--accent);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  margin: 0 0 16px;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 56px);
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  margin: 0 0 24px;
+}
+.intro > p:last-child,
+section > p:not(.eyebrow) {
+  color: var(--muted);
+}
+.contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  padding-block: 22px;
+  border-block: 1px solid var(--border);
+}
+.contents a {
+  font-size: 13px;
+  text-decoration: none;
+}
+section {
+  padding-block: 52px;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 24px;
+}
+h2 {
+  font-size: 26px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+h3 {
+  font-size: 17px;
+  line-height: 1.7;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+p {
+  margin: 0 0 20px;
+}
+.creator,
+.license-body,
+.credit-card {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px 80px;
+  margin: 0 0 24px;
+}
+dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+.creator p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+.license-body {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.license-body p:last-child {
+  margin-bottom: 0;
+}
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.credit-card p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.badge {
+  display: inline-block;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 8px;
+}
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 0;
+  margin: 0 0 20px;
+  list-style: none;
+  font-size: 12px;
+}
+details {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+summary {
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 20px 0 0;
+}
+.library-list article {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--border);
+}
+.library-list article:first-child {
+  padding-top: 0;
+}
+.library-list article:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.library-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 12px;
+}
+.library-heading h3 {
+  margin: 0;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 15px;
+}
+.library-heading h3 span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-block: 32px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 20px;
+  padding: 10px;
+  background: var(--panel);
+}
+.skip-link:focus {
+  top: 10px;
+}
+@media (max-width: 640px) {
+  .site-header,
+  main,
+  footer {
+    padding-inline: 20px;
+  }
+  .site-header {
+    align-items: start;
+    gap: 16px;
+  }
+  .brand {
+    font-size: 16px;
+  }
+  .back-link {
+    font-size: 11px;
+  }
+  .intro {
+    padding-block: 48px 32px;
+  }
+  .intro br:not(h1 br) {
+    display: none;
+  }
+  section {
+    padding-block: 36px;
+  }
+  h2 {
+    font-size: 22px;
+  }
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .creator,
+  .license-body,
+  .credit-card {
+    padding: 20px;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f6f9fa;
+    --panel: #fff;
+    --text: #142731;
+    --muted: #4d6470;
+    --accent: #11675f;
+    --border: #c7d6dc;
+  }
+}
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #fff;
+    --panel: #fff;
+    --text: #000;
+    --muted: #333;
+    --accent: #000;
+    --border: #ccc;
+  }
+  .back-link,
+  .contents,
+  footer a {
+    display: none;
+  }
+  .site-header,
+  main,
+  footer {
+    padding-inline: 0;
+  }
+  .intro,
+  section {
+    padding-block: 20px;
+  }
+  .card-grid {
+    display: block;
+  }
+  .credit-card {
+    margin-bottom: 16px;
+  }
+  details::details-content {
+    content-visibility: visible;
+  }
+}

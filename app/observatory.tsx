@@ -2067,18 +2067,8 @@ export default function Home() {
           <span className="creator-roles">
             {tr('企画・制作：Setsuna SHIROSAKI · AI開発支援：GPT-6 Astra')}
           </span>
-          <a href="/license.txt" target="_blank" rel="noopener noreferrer">
-            {tr('License')}
-          </a>
-          <a href="/notice.txt" target="_blank" rel="noopener noreferrer">
-            {tr('Notice')}
-          </a>
-          <a
-            href="/third-party-notices.txt"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {tr('使用ライブラリ・データの権利表記')}
+          <a href="/credits.html" target="_blank" rel="noopener noreferrer">
+            {tr('ライセンス・クレジット')}
           </a>
         </div>
       </footer>
