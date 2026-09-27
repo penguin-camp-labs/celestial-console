@@ -111,7 +111,7 @@ export async function collectCredits() {
       name: 'NASA/JPL Horizons',
       license: '天体暦データ',
       description:
-        '8日間隔の地心ICRFベクトル（LT+S、UT）を取得し、Float32形式と3次Hermite補間に適応させて追加天体の位置計算に使用しています。',
+        '8日間隔の地心ICRFベクトル（LT+S、UT）をFloat32形式で保存しています。追加天体の位置は3次Hermite補間で求め、指定日時の黄道座標に変換します。',
       url: 'https://ssd.jpl.nasa.gov/horizons/',
       links: [['取得メタデータ', '/ephemeris/manifest.json']],
       text: 'https://ssd.jpl.nasa.gov/horizons/\nApparent geocentric ICRF vectors (LT+S, UT), sampled every 8 days, adapted to Float32 and cubic Hermite interpolation. Retrieval metadata: /ephemeris/manifest.json.\n',
@@ -165,7 +165,7 @@ export function renderCredits({ license, libraries, fonts, data }) {
   <a class="skip-link" href="#main">本文へ移動</a>
   <header class="site-header"><a class="brand" href="/">CELESTIAL<span>天球ホロスコープ</span></a><a class="back-link" href="/">観測画面へ戻る ↗</a></header>
   <main id="main">
-    <div class="intro"><p class="eyebrow" lang="en">LICENSES &amp; CREDITS</p><h1>ライセンス・<br>クレジット</h1><p>CELESTIALをつくるコード、フォント、天体と都市のデータ。<br>その作者と出典、利用条件をここに記載します。</p></div>
+    <div class="intro"><p class="eyebrow" lang="en">LICENSES &amp; CREDITS</p><h1>ライセンス・<br>クレジット</h1><p>CELESTIALの制作情報と、使用するライブラリ・フォント・データの<br>著作権表示、出典、利用条件を記載します。</p></div>
     <nav class="contents" aria-label="ページ内の目次"><a href="#notice">01 制作</a><a href="#license">02 ライセンス</a><a href="#data">03 データ</a><a href="#fonts">04 フォント</a><a href="#libraries">05 ライブラリ</a></nav>
     <section id="notice" aria-labelledby="notice-title"><p class="eyebrow">01 / NOTICE</p><h2 id="notice-title">制作クレジット</h2><div class="creator"><dl><div><dt>企画・制作</dt><dd>Setsuna SHIROSAKI</dd></div><div><dt>AI開発支援</dt><dd>GPT-6 Astra</dd></div></dl><p lang="en">Copyright (c) 2026 Setsuna SHIROSAKI<br>Created with assistance from GPT-6 Astra.</p></div></section>
     <section id="license" aria-labelledby="license-title"><p class="eyebrow">02 / LICENSE</p><h2 id="license-title">CELESTIALのライセンス</h2><p>アプリケーションのコードはMIT Licenseで公開しています。使用ライブラリ・フォント・データには、それぞれの利用条件が適用されます。</p><div class="license-body" lang="en">${license

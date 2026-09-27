@@ -1,6 +1,8 @@
-CELESTIAL ? “V‹…ƒzƒƒXƒR[ƒv
+CELESTIAL â€” å¤©çƒãƒ›ãƒ­ã‚¹ã‚³ãƒ¼ãƒ—
 
 Copyright (c) 2026 Setsuna SHIROSAKI
 Created with assistance from GPT-6 Astra.
 
-See /third-party-notices.txt for third-party software, font, and data notices.
+Application code: MIT License (/license.txt).
+Licenses, credits and data sources: /credits.html
+Full third-party notices: /third-party-notices.txt

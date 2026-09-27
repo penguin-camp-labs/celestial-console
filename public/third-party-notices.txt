@@ -1,20 +1,4 @@
-Third-party notices
+CELESTIAL — Third-party notices
 
-Astronomy Engine 2.1.19 ? MIT
-https://github.com/cosinekitty/astronomy
-
-Three.js 0.185.0 ? MIT
-https://github.com/mrdoob/three.js
-
-React 19.2.8 ? MIT
-https://github.com/facebook/react
-
-Source Code Pro and BIZ UDPGothic ? SIL Open Font License 1.1
-See /fonts/OFL.txt
-
-GeoNames cities15000 ? Creative Commons Attribution 4.0
-See /data/NOTICE.txt
-https://creativecommons.org/licenses/by/4.0/
-
-Hipparcos / ESA / CDS catalogue I/239
-https://cdsarc.cds.unistra.fr/viz-bin/cat/I/239
+See /credits.html for library, font and data credits.
+The production build replaces this file with the full bundled third-party copyright and license notices.

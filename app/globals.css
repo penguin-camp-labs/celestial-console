@@ -1133,6 +1133,15 @@ button:active {
   color: #dfecef;
   font-weight: 500;
 }
+.help-copy h3 {
+  margin: 26px 0 10px;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 500;
+}
+.help-copy h3:first-child {
+  margin-top: 0;
+}
 .help-copy a {
   text-decoration: underline;
   text-underline-offset: 3px;
