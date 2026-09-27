@@ -168,7 +168,7 @@ export function renderCredits({ license, libraries, fonts, data }) {
     <div class="intro"><p class="eyebrow" lang="en">LICENSES &amp; CREDITS</p><h1>ライセンス・<br>クレジット</h1><p>CELESTIALの制作情報と、使用するライブラリ・フォント・データの<br>著作権表示、出典、利用条件を記載します。</p></div>
     <nav class="contents" aria-label="ページ内の目次"><a href="#notice">01 制作</a><a href="#license">02 ライセンス</a><a href="#data">03 データ</a><a href="#fonts">04 フォント</a><a href="#libraries">05 ライブラリ</a></nav>
     <section id="notice" aria-labelledby="notice-title"><p class="eyebrow">01 / NOTICE</p><h2 id="notice-title">制作クレジット</h2><div class="creator"><dl><div><dt>企画・制作</dt><dd>Setsuna SHIROSAKI</dd></div><div><dt>AI開発支援</dt><dd>GPT-6 Astra</dd></div></dl><p lang="en">Copyright (c) 2026 Setsuna SHIROSAKI<br>Created with assistance from GPT-6 Astra.</p></div></section>
-    <section id="license" aria-labelledby="license-title"><p class="eyebrow">02 / LICENSE</p><h2 id="license-title">CELESTIALのライセンス</h2><p>アプリケーションのコードはMIT Licenseで公開しています。使用ライブラリ・フォント・データには、それぞれの利用条件が適用されます。</p><div class="license-body" lang="en">${license
+    <section id="license" aria-labelledby="license-title"><p class="eyebrow">02 / LICENSE</p><h2 id="license-title">CELESTIALのライセンス</h2><p>アプリケーションのコードはMIT Licenseで公開しています。使用ライブラリ・フォント・データには、それぞれの利用条件が適用されます。</p><p><a href="https://github.com/penguin-camp-labs/celestial-console">GitHubでソースコードを見る</a></p><div class="license-body" lang="en">${license
       .trim()
       .split(/\r?\n\s*\r?\n/)
       .map((paragraph, i) =>
